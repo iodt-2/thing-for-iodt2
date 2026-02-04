@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Apache Jena Fuseki - RDF Triple Store
+  fuseki:
+    image: stain/jena-fuseki:latest
+    container_name: twinscale-fuseki
+    ports:
+      - "3030:3030"
+    environment:
+      - ADMIN_PASSWORD=admin123
+      - JVM_ARGS=-Xmx2g
+    volumes:
+      - fuseki-data:/fuseki
+    networks:
+      - twinscale-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/$/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend - FastAPI
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: twinscale-backend
+    ports:
+      - "3015:3015"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - FUSEKI_URL=http://fuseki:3030
+      - FUSEKI_DATASET=twinscale
+      - CORS_ORIGINS=http://localhost,http://localhost:3005,http://frontend
+    volumes:
+      - ./backend:/app
+      - backend-data:/app/data
+    depends_on:
+      fuseki:
+        condition: service_healthy
+    networks:
+      - twinscale-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend - React + Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: twinscale-frontend
+    ports:
+      - "3005:80"
+    depends_on:
+      - backend
+    networks:
+      - twinscale-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  fuseki-data:
+    driver: local
+  backend-data:
+    driver: local
+
+networks:
+  twinscale-network:
+    driver: bridge
