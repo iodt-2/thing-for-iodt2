@@ -38,7 +38,7 @@ logs/
 
 # Documents (ui-guide.md hariç)
 *.docx
-*.pdf
+#*.pdf
 
 # OS
 .DS_Store
