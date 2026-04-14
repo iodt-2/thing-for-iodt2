@@ -13,6 +13,7 @@ import zipfile
 from app.services.twin_generator_service import TwinGeneratorService
 from app.services.twin_rdf_service import TwinRDFService
 from app.services.location_service import LocationService
+from app.services.debug_dump_service import DebugDumpService
 from app.models.twin_models import ValidationResult
 from app.api.dependencies import get_tenant_id
 from pydantic import BaseModel
@@ -228,6 +229,34 @@ async def create_twin_thing(
         # Get normalized names
         interface_name = generator._normalize_name(request.id)
         instance_name = interface_name
+
+        # DEBUG: Tüm formatları diske yaz (ontoloji doğrulama için)
+        try:
+            DebugDumpService.dump(
+                thing_id=request.id,
+                form_data=request.model_dump(),
+                interface_yaml=interface_yaml,
+                instance_yaml=instance_yaml,
+                metadata={
+                    "tenant_id": tenant_id,
+                    "name": request.name,
+                    "description": request.description,
+                    "thing_type": request.thing_type,
+                    "manufacturer": request.manufacturer,
+                    "model": request.model,
+                    "serial_number": request.serial_number,
+                    "firmware_version": request.firmware_version,
+                    **(
+                        {
+                            "dtdl_interface": request.dtdl_interface.get("dtmi"),
+                            "dtdl_interface_name": request.dtdl_interface.get("displayName"),
+                        }
+                        if request.dtdl_interface else {}
+                    ),
+                },
+            )
+        except Exception as _dbg_err:
+            logger.warning(f"Debug dump failed (non-fatal): {_dbg_err}")
 
         # Store in RDF if requested
         stored_in_rdf = False
