@@ -22,7 +22,7 @@ Properties:
 - hasInstanceRelationship: Links instance to another instance
 """
 
-from rdflib import Namespace, Graph, RDF, RDFS, XSD, Literal, URIRef
+from rdflib import Namespace, Graph, RDF, RDFS, XSD, OWL, Literal, URIRef
 from typing import Dict, Any
 
 
@@ -60,6 +60,7 @@ def get_twin_ontology() -> Graph:
 
     # Bind namespaces
     g.bind("ts", TWIN)
+    g.bind("owl", OWL)
     g.bind("rdf", RDF)
     g.bind("rdfs", RDFS)
     g.bind("xsd", XSD)
@@ -119,6 +120,14 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.hasRelationship, RDFS.label, Literal("has relationship", lang="en")))
     g.add((TWIN.hasRelationship, RDFS.domain, TWIN.TwinInterface))
     g.add((TWIN.hasRelationship, RDFS.range, TWIN.Relationship))
+
+    # sourceInterface — Relationship node'undaki kaynak interface referansı
+    g.add((TWIN.sourceInterface, RDF.type, RDF.Property))
+    g.add((TWIN.sourceInterface, RDFS.label, Literal("source interface", lang="en")))
+    g.add((TWIN.sourceInterface, RDFS.comment,
+           Literal("The TwinInterface that defines this outgoing relationship", lang="en")))
+    g.add((TWIN.sourceInterface, RDFS.domain, TWIN.Relationship))
+    g.add((TWIN.sourceInterface, RDFS.range, TWIN.TwinInterface))
 
     # hasCommand
     g.add((TWIN.hasCommand, RDF.type, RDF.Property))
@@ -189,6 +198,61 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.unit, RDFS.range, XSD.string))
 
     # ========================================================================
+    # Relationship Type Vocabulary (SSN/SOSA inverse pattern + DTDL name-as-type)
+    # ========================================================================
+
+    g.add((TWIN.RelationshipType, RDF.type, RDFS.Class))
+    g.add((TWIN.RelationshipType, RDFS.label, Literal("Relationship Type", lang="en")))
+
+    for fwd, inv in [
+        ("feeds", "isFedBy"),
+        ("controls", "isControlledBy"),
+        ("contains", "isContainedIn"),
+        ("monitors", "isMonitoredBy"),
+        ("dependsOn", "isDependedOnBy"),
+    ]:
+        g.add((TWIN[fwd], RDF.type, TWIN.RelationshipType))
+        g.add((TWIN[inv], RDF.type, TWIN.RelationshipType))
+        g.add((TWIN[fwd], OWL.inverseOf, TWIN[inv]))
+        g.add((TWIN[inv], OWL.inverseOf, TWIN[fwd]))
+
+    # Propagation metadata
+    g.add((TWIN.propagationDirection, RDF.type, RDF.Property))
+    g.add((TWIN.onTargetDeleted, RDF.type, RDF.Property))
+    g.add((TWIN.Deactivate, RDF.type, TWIN.DeletionPolicy))
+
+    for rel_name, direction in [
+        ("feeds", "source-to-target"),
+        ("controls", "target-to-source"),
+        ("contains", "bidirectional"),
+        ("monitors", "source-to-target"),
+        ("dependsOn", "target-to-source"),
+    ]:
+        g.add((TWIN[rel_name], TWIN.propagationDirection, Literal(direction)))
+        g.add((TWIN[rel_name], TWIN.onTargetDeleted, TWIN.Deactivate))
+
+    # ========================================================================
+    # Relationship Status (reification pattern)
+    # ========================================================================
+
+    g.add((TWIN.RelationshipStatus, RDF.type, RDFS.Class))
+    g.add((TWIN.RelationshipStatus, RDFS.label, Literal("Relationship Status", lang="en")))
+
+    g.add((TWIN.Active, RDF.type, TWIN.RelationshipStatus))
+    g.add((TWIN.Inactive, RDF.type, TWIN.RelationshipStatus))
+    g.add((TWIN.Degraded, RDF.type, TWIN.RelationshipStatus))
+
+    g.add((TWIN.relationshipType, RDF.type, RDF.Property))
+    g.add((TWIN.relationshipType, RDFS.domain, TWIN.Relationship))
+    g.add((TWIN.relationshipType, RDFS.range, TWIN.RelationshipType))
+
+    g.add((TWIN.relationshipStatus, RDF.type, RDF.Property))
+    g.add((TWIN.relationshipStatus, RDFS.domain, TWIN.Relationship))
+    g.add((TWIN.relationshipStatus, RDFS.range, TWIN.RelationshipStatus))
+
+    # owl:inverseOf is used directly (standard OWL property, no custom definition needed)
+
+    # ========================================================================
     # Properties - Relationship Attributes
     # ========================================================================
 
@@ -248,6 +312,74 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.originalId, RDF.type, RDF.Property))
     g.add((TWIN.originalId, RDFS.label, Literal("original ID", lang="en")))
     g.add((TWIN.originalId, RDFS.range, XSD.string))
+
+    # ========================================================================
+    # Properties - Thing Type & Domain Metadata (Phase 1)
+    # ========================================================================
+
+    # thingType
+    g.add((TWIN.thingType, RDF.type, RDF.Property))
+    g.add((TWIN.thingType, RDFS.label, Literal("thing type", lang="en")))
+    g.add((TWIN.thingType, RDFS.comment,
+           Literal("Modeling type of the twin: device, sensor, or component", lang="en")))
+    g.add((TWIN.thingType, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.thingType, RDFS.range, XSD.string))
+
+    # manufacturer
+    g.add((TWIN.manufacturer, RDF.type, RDF.Property))
+    g.add((TWIN.manufacturer, RDFS.label, Literal("manufacturer", lang="en")))
+    g.add((TWIN.manufacturer, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.manufacturer, RDFS.range, XSD.string))
+
+    # model
+    g.add((TWIN.model, RDF.type, RDF.Property))
+    g.add((TWIN.model, RDFS.label, Literal("model", lang="en")))
+    g.add((TWIN.model, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.model, RDFS.range, XSD.string))
+
+    # serialNumber
+    g.add((TWIN.serialNumber, RDF.type, RDF.Property))
+    g.add((TWIN.serialNumber, RDFS.label, Literal("serial number", lang="en")))
+    g.add((TWIN.serialNumber, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.serialNumber, RDFS.range, XSD.string))
+
+    # firmwareVersion
+    g.add((TWIN.firmwareVersion, RDF.type, RDF.Property))
+    g.add((TWIN.firmwareVersion, RDFS.label, Literal("firmware version", lang="en")))
+    g.add((TWIN.firmwareVersion, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.firmwareVersion, RDFS.range, XSD.string))
+
+    # ========================================================================
+    # Properties - DTDL Binding (Phase 2)
+    # ========================================================================
+
+    # dtdlInterface
+    g.add((TWIN.dtdlInterface, RDF.type, RDF.Property))
+    g.add((TWIN.dtdlInterface, RDFS.label, Literal("DTDL interface", lang="en")))
+    g.add((TWIN.dtdlInterface, RDFS.comment,
+           Literal("DTMI identifier of the bound DTDL interface", lang="en")))
+    g.add((TWIN.dtdlInterface, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.dtdlInterface, RDFS.range, XSD.string))
+
+    # dtdlInterfaceName
+    g.add((TWIN.dtdlInterfaceName, RDF.type, RDF.Property))
+    g.add((TWIN.dtdlInterfaceName, RDFS.label, Literal("DTDL interface name", lang="en")))
+    g.add((TWIN.dtdlInterfaceName, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.dtdlInterfaceName, RDFS.range, XSD.string))
+
+    # dtdlCategory
+    g.add((TWIN.dtdlCategory, RDF.type, RDF.Property))
+    g.add((TWIN.dtdlCategory, RDFS.label, Literal("DTDL category", lang="en")))
+    g.add((TWIN.dtdlCategory, RDFS.domain, TWIN.TwinInterface))
+    g.add((TWIN.dtdlCategory, RDFS.range, XSD.string))
+
+    # ========================================================================
+    # Properties - Relationship fix: targetInterface range is TwinInterface URI
+    # ========================================================================
+
+    # targetInterface range'ini string'den TwinInterface'e güncelle
+    g.remove((TWIN.targetInterface, RDFS.range, None))
+    g.add((TWIN.targetInterface, RDFS.range, TWIN.TwinInterface))
 
     return g
 

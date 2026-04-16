@@ -24,7 +24,7 @@ from rdflib.namespace import RDF, RDFS, XSD
 logger = logging.getLogger(__name__)
 
 # Debug çıktılarının kök klasörü
-_DEBUG_ROOT = Path(__file__).resolve().parents[3] / "data" / "debug"
+_DEBUG_ROOT = Path(__file__).resolve().parents[2] / "data" / "debug"
 
 
 def _safe_slug(text: str) -> str:
@@ -126,18 +126,27 @@ def _build_jsonld(
     # Relationships
     rel_nodes = []
     for rel in spec.get("relationships", []):
+        target_iface_name = rel.get("interface", "")
         rnode: Dict[str, Any] = {
             "@id": f"{tsd}{iface_name}/relationship/{rel['name']}",
             "@type": f"{ts}Relationship",
             f"{ts}relationshipName": [{"@value": rel["name"]}],
-            f"{ts}targetInterface": [{"@value": rel.get("interface", "")}],
+            f"{ts}targetInterface": [{"@id": f"{tsd}{target_iface_name}"}],
+            f"{ts}sourceInterface": [{"@id": iface_uri}],
         }
         if rel.get("description"):
             rnode[f"{ts}description"] = [{"@value": rel["description"]}]
+        rel_type = rel.get("relationship_type") or rel.get("type", "")
+        if rel_type:
+            rnode[f"{ts}relationshipType"] = [{"@id": f"{ts}{rel_type}"}]
+        rnode[f"{ts}relationshipStatus"] = [{"@id": f"{ts}Active"}]
         rel_nodes.append(rnode)
 
     if rel_nodes:
         iface_node[f"{ts}hasRelationship"] = [{"@id": r["@id"]} for r in rel_nodes]
+        # Incoming referansları hedef node'larına ekle (JSON-LD graph içinde)
+        # Bu bilgi _build_jsonld'nin graph listesine ayrıca eklenmeyecek;
+        # RDF Turtle dosyasında (06_output.ttl) bu triple'lar zaten mevcut.
 
     # Commands
     cmd_nodes = []
@@ -286,9 +295,19 @@ def _build_rdf_turtle(
         rel_uri = create_relationship_uri(iface_name, rel["name"])
         g.add((rel_uri, RDF.type, TS.Relationship))
         g.add((rel_uri, TS.relationshipName, Literal(rel["name"])))
-        g.add((rel_uri, TS.targetInterface, Literal(rel.get("interface", ""))))
+        target_iface_uri = create_interface_uri(rel.get("interface", ""))
+        g.add((rel_uri, TS.targetInterface, target_iface_uri))
+        # sourceInterface: kaynak referansı
+        g.add((rel_uri, TS.sourceInterface, interface_uri))
         if rel.get("description"):
             g.add((rel_uri, TS.description, Literal(rel["description"])))
+        # relationshipType
+        rel_type = rel.get("relationship_type") or rel.get("type", "")
+        if rel_type:
+            g.add((rel_uri, TS.relationshipType, TS[rel_type]))
+        # relationshipStatus: Active by default
+        g.add((rel_uri, TS.relationshipStatus, TS.Active))
+        # Outgoing
         g.add((interface_uri, TS.hasRelationship, rel_uri))
 
     for cmd in spec.get("commands", []):

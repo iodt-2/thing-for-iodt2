@@ -31,6 +31,25 @@ from ..core.exceptions import FusekiException
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# Relationship type inverse map (SSN/SOSA pattern)
+INVERSE_TYPE_MAP = {
+    "feeds": "isFedBy",
+    "isFedBy": "feeds",
+    "controls": "isControlledBy",
+    "isControlledBy": "controls",
+    "contains": "isContainedIn",
+    "isContainedIn": "contains",
+    "monitors": "isMonitoredBy",
+    "isMonitoredBy": "monitors",
+    "dependsOn": "isDependedOnBy",
+    "isDependedOnBy": "dependsOn",
+}
+
+
+def get_inverse_type(rel_type: str) -> Optional[str]:
+    """Returns the inverse relationship type, or None if unknown."""
+    return INVERSE_TYPE_MAP.get(rel_type)
+
 
 class TwinRDFService:
     """Service for managing Twin data in RDF format"""
@@ -113,6 +132,9 @@ class TwinRDFService:
             # Store in Fuseki as Named Graph
             await self._store_named_graph(graph, graph_uri)
 
+            # Insert inverse relationships into each target thing's named graph
+            await self._insert_inverse_relationships(interface_data, tenant_id)
+
             logger.info(f"Successfully stored Twin RDF for thing: {thing_id} in graph: {graph_uri}")
             return True
 
@@ -120,43 +142,167 @@ class TwinRDFService:
             logger.error(f"Failed to store Twin RDF: {str(e)}")
             raise FusekiException(f"Failed to store Twin RDF: {str(e)}")
 
+    async def get_dependencies(self, interface_name: str, tenant_id: str = "default") -> Dict[str, Any]:
+        """
+        Find all Active relationships that reference this interface (forward or inverse).
+
+        Returns dict with forward_targets, inverse_sources, total_count.
+        """
+        try:
+            interface_uri = create_interface_uri(interface_name)
+            graph_filter = self._build_tenant_graph_filter(tenant_id)
+
+            # Forward: bu thing'in sourceInterface olduğu relationship'ler
+            fwd_query = f"""
+            PREFIX ts: <{self.TS}>
+            SELECT DISTINCT ?relName ?targetUri ?relType ?relStatus
+            WHERE {{
+                GRAPH ?graph {{
+                    ?rel a ts:Relationship .
+                    ?rel ts:sourceInterface <{interface_uri}> .
+                    ?rel ts:targetInterface ?targetUri .
+                    ?rel ts:relationshipName ?relName .
+                    OPTIONAL {{ ?rel ts:relationshipType ?relType }}
+                    OPTIONAL {{ ?rel ts:relationshipStatus ?relStatus }}
+                }}
+                {graph_filter}
+            }}
+            """
+
+            # Inverse: bu thing'in targetInterface olduğu relationship'ler (diğer thing'lerin graflarında)
+            inv_query = f"""
+            PREFIX ts: <{self.TS}>
+            SELECT DISTINCT ?relName ?sourceUri ?relType ?relStatus
+            WHERE {{
+                GRAPH ?graph {{
+                    ?rel a ts:Relationship .
+                    ?rel ts:targetInterface <{interface_uri}> .
+                    ?rel ts:sourceInterface ?sourceUri .
+                    ?rel ts:relationshipName ?relName .
+                    OPTIONAL {{ ?rel ts:relationshipType ?relType }}
+                    OPTIONAL {{ ?rel ts:relationshipStatus ?relStatus }}
+                }}
+                {graph_filter}
+            }}
+            """
+
+            fwd_results = await self._execute_query(fwd_query)
+            inv_results = await self._execute_query(inv_query)
+
+            fwd_parsed = self._parse_sparql_results(fwd_results)
+            inv_parsed = self._parse_sparql_results(inv_results)
+
+            forward_targets = []
+            for row in fwd_parsed:
+                target_uri = row.get("targetUri", "")
+                target_name = target_uri.split("/")[-1] if target_uri else ""
+                rel_type_uri = row.get("relType", "")
+                rel_status_uri = row.get("relStatus", "")
+                forward_targets.append({
+                    "name": target_name,
+                    "type": rel_type_uri.split("#")[-1] if rel_type_uri else "",
+                    "status": rel_status_uri.split("#")[-1] if rel_status_uri else "Active",
+                    "relName": row.get("relName", ""),
+                })
+
+            inverse_sources = []
+            for row in inv_parsed:
+                source_uri = row.get("sourceUri", "")
+                source_name = source_uri.split("/")[-1] if source_uri else ""
+                rel_type_uri = row.get("relType", "")
+                rel_status_uri = row.get("relStatus", "")
+                inverse_sources.append({
+                    "name": source_name,
+                    "type": rel_type_uri.split("#")[-1] if rel_type_uri else "",
+                    "status": rel_status_uri.split("#")[-1] if rel_status_uri else "Active",
+                    "relName": row.get("relName", ""),
+                })
+
+            return {
+                "forward_count": len(forward_targets),
+                "inverse_count": len(inverse_sources),
+                "forward_targets": forward_targets,
+                "inverse_sources": inverse_sources,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get dependencies for {interface_name}: {str(e)}")
+            raise FusekiException(f"Failed to get dependencies: {str(e)}")
+
     async def delete_twin(self, interface_name: str, tenant_id: str = "default") -> bool:
         """
-        Delete Twin interface and all its instances from Fuseki by dropping the named graph
+        Delete Twin interface from Fuseki.
+
+        Before dropping the graph:
+        1. Deactivates all relationships in OTHER graphs that point TO this interface
+           (sets ts:relationshipStatus from ts:Active to ts:Inactive)
+        2. Drops this interface's own named graph (removes its forward relationships too)
+
+        No cascade delete — other things are unaffected; only their relationship
+        status changes to Inactive so historical data is preserved.
 
         Args:
-            interface_name: Name of the TwinInterface to delete
+            interface_name: Name of the TwinInterface (e.g. "iodt2-pm25")
             tenant_id: Tenant ID for graph isolation
 
         Returns:
             bool: True if successful
         """
         try:
-            # Construct the thing_id from interface_name (remove iodt2- prefix if present)
-            # interface_name format: iodt2-sensor1
-            # thing_id format: tenant:sensor1 or just sensor1
-            thing_id_part = interface_name.replace("iodt2-", "")
+            interface_uri = create_interface_uri(interface_name)
+            graph_filter = self._build_tenant_graph_filter(tenant_id)
 
-            # Try both formats: with and without tenant prefix
-            possible_thing_ids = [
-                f"{tenant_id}:{thing_id_part}",
-                thing_id_part
-            ]
+            # Step 1: Deactivate relationships in OTHER graphs that target this interface
+            deactivate_query = f"""
+            PREFIX ts: <{self.TS}>
 
-            # Try to find and drop the graph
-            for thing_id in possible_thing_ids:
-                graph_uri = f"http://twin.io/graphs/{tenant_id}/{thing_id}"
+            DELETE {{ GRAPH ?g {{ ?rel ts:relationshipStatus ts:Active }} }}
+            INSERT {{ GRAPH ?g {{ ?rel ts:relationshipStatus ts:Inactive }} }}
+            WHERE {{
+                GRAPH ?g {{
+                    ?rel a ts:Relationship .
+                    ?rel ts:targetInterface <{interface_uri}> .
+                    ?rel ts:relationshipStatus ts:Active .
+                }}
+                {graph_filter}
+            }}
+            """
+            await self._execute_update(deactivate_query)
+            logger.info(f"Deactivated incoming relationships pointing to: {interface_name}")
 
-                # DROP GRAPH query
-                query = f"""
-                DROP SILENT GRAPH <{graph_uri}>
-                """
+            # Step 2: Find the named graph that contains this interface
+            find_query = f"""
+            PREFIX ts: <{self.TS}>
 
-                await self._execute_update(query)
-                logger.info(f"Attempted to delete graph: {graph_uri}")
+            SELECT DISTINCT ?graph
+            WHERE {{
+                GRAPH ?graph {{
+                    <{interface_uri}> a ts:TwinInterface .
+                }}
+                {graph_filter}
+            }}
+            """
 
-            logger.info(f"Deleted Twin data for interface: {interface_name}")
-            return True
+            results = await self._execute_query(find_query)
+            rows = self._parse_sparql_results(results)
+
+            if not rows:
+                logger.warning(f"No graph found for interface: {interface_name} (tenant: {tenant_id})")
+                return False
+
+            # Step 3: Drop the interface's own named graph
+            dropped = 0
+            for row in rows:
+                graph_uri = row.get("graph", "")
+                if not graph_uri:
+                    continue
+                drop_query = f"DROP SILENT GRAPH <{graph_uri}>"
+                await self._execute_update(drop_query)
+                logger.info(f"Dropped graph: {graph_uri}")
+                dropped += 1
+
+            logger.info(f"Deleted {dropped} graph(s) for interface: {interface_name}")
+            return dropped > 0
 
         except Exception as e:
             logger.error(f"Failed to delete Twin data: {str(e)}")
@@ -219,6 +365,46 @@ class TwinRDFService:
             logger.error(f"Failed to query interfaces: {str(e)}")
             raise FusekiException(f"Failed to query interfaces: {str(e)}")
 
+    async def interface_exists(
+        self,
+        interface_name: str,
+        tenant_id: Optional[str] = None
+    ) -> bool:
+        """
+        Check if a TwinInterface exists in Fuseki for the given tenant.
+
+        Args:
+            interface_name: Name of the interface to check (e.g. "iodt2-gateway1")
+            tenant_id: Tenant scope
+
+        Returns:
+            True if the interface exists, False otherwise
+        """
+        try:
+            interface_uri = create_interface_uri(interface_name)
+            graph_filter = self._build_tenant_graph_filter(tenant_id)
+
+            query = f"""
+            PREFIX ts: <{self.TS}>
+
+            ASK {{
+                GRAPH ?graph {{
+                    <{interface_uri}> a ts:TwinInterface .
+                }}
+                {graph_filter}
+            }}
+            """
+
+            results = await self._execute_query(query)
+            # SPARQL ASK returns {"boolean": true/false} in JSON format
+            if isinstance(results, dict):
+                return results.get("boolean", False)
+            return False
+
+        except Exception as e:
+            logger.warning(f"Failed to check interface existence for '{interface_name}': {e}")
+            return False
+
     async def query_instances(
         self,
         interface_name: Optional[str] = None,
@@ -242,10 +428,7 @@ class TwinRDFService:
                 interface_uri = create_interface_uri(interface_name)
                 interface_filter = f"?instance ts:instanceOf <{interface_uri}> ."
 
-            # Add tenant filter if provided
-            graph_filter = ""
-            if tenant_id:
-                graph_filter = f"FILTER(STRSTARTS(STR(?graph), 'http://twin.io/graphs/{tenant_id}/'))"
+            graph_filter = self._build_tenant_graph_filter(tenant_id)
 
             query = f"""
             PREFIX ts: <{self.TS}>
@@ -287,10 +470,7 @@ class TwinRDFService:
         try:
             interface_uri = create_interface_uri(interface_name)
 
-            # Add tenant filter if provided
-            graph_filter = ""
-            if tenant_id:
-                graph_filter = f"FILTER(STRSTARTS(STR(?graph), 'http://twin.io/graphs/{tenant_id}/'))"
+            graph_filter = self._build_tenant_graph_filter(tenant_id)
 
             query = f"""
             PREFIX ts: <{self.TS}>
@@ -298,7 +478,7 @@ class TwinRDFService:
 
             SELECT ?name ?description ?generatedAt ?generatedBy
                    ?propName ?propType ?propDesc ?writable
-                   ?relName ?relTarget ?relDesc
+                   ?relName ?relTarget ?relDesc ?relType ?relStatus
                    ?cmdName ?cmdDesc ?graph
             WHERE {{
                 GRAPH ?graph {{
@@ -323,6 +503,8 @@ class TwinRDFService:
                         ?rel ts:relationshipName ?relName .
                         ?rel ts:targetInterface ?relTarget .
                         OPTIONAL {{ ?rel ts:description ?relDesc }}
+                        OPTIONAL {{ ?rel ts:relationshipType ?relType }}
+                        OPTIONAL {{ ?rel ts:relationshipStatus ?relStatus }}
                     }}
 
                     # Commands
@@ -337,7 +519,61 @@ class TwinRDFService:
             """
 
             results = await self._execute_query(query)
-            return self._parse_interface_details(results)
+            interface = self._parse_interface_details(results)
+
+            if interface is None:
+                return None
+
+            # Incoming relationships: bu interface'i targetInterface olarak gösteren relationship node'ları
+            # hasIncomingRelationship yerine targetInterface üzerinden sorgula (Seviye 2)
+            incoming_query = f"""
+            PREFIX ts: <{self.TS}>
+            PREFIX tsd: <{self.TSD}>
+
+            SELECT DISTINCT ?relName ?sourceName ?sourceUri ?relDesc ?relType ?relStatus ?graph
+            WHERE {{
+                GRAPH ?graph {{
+                    ?rel a ts:Relationship .
+                    ?rel ts:targetInterface <{interface_uri}> .
+                    ?rel ts:relationshipName ?relName .
+                    ?rel ts:sourceInterface ?sourceUri .
+                    OPTIONAL {{ ?rel ts:description ?relDesc }}
+                    OPTIONAL {{ ?rel ts:relationshipType ?relType }}
+                    OPTIONAL {{ ?rel ts:relationshipStatus ?relStatus }}
+                    OPTIONAL {{ ?sourceUri ts:name ?sourceName }}
+                }}
+                {graph_filter}
+            }}
+            """
+
+            incoming_results = await self._execute_query(incoming_query)
+            incoming_parsed = self._parse_sparql_results(incoming_results)
+
+            seen_incoming = set()
+            incoming_relationships = []
+            for row in incoming_parsed:
+                source_uri = row.get("sourceUri", "")
+                rel_name = row.get("relName", "")
+                key = f"{source_uri}_{rel_name}"
+                if key not in seen_incoming:
+                    source_short = source_uri.split("/")[-1] if source_uri else ""
+                    # relType URI'den son parça: http://twin.dtd/ontology#feeds → feeds
+                    rel_type_uri = row.get("relType", "")
+                    rel_type_short = rel_type_uri.split("#")[-1] if rel_type_uri else ""
+                    rel_status_uri = row.get("relStatus", "")
+                    rel_status_short = rel_status_uri.split("#")[-1] if rel_status_uri else "Active"
+                    incoming_relationships.append({
+                        "name": rel_name,
+                        "sourceInterface": row.get("sourceName") or source_short,
+                        "sourceUri": source_uri,
+                        "description": row.get("relDesc"),
+                        "relationshipType": rel_type_short,
+                        "status": rel_status_short,
+                    })
+                    seen_incoming.add(key)
+
+            interface["incomingRelationships"] = incoming_relationships
+            return interface
 
         except Exception as e:
             logger.error(f"Failed to get interface details: {str(e)}")
@@ -721,10 +957,7 @@ class TwinRDFService:
         try:
             instance_uri = create_instance_uri(instance_name)
 
-            # Add tenant filter if provided
-            graph_filter = ""
-            if tenant_id:
-                graph_filter = f"FILTER(STRSTARTS(STR(?graph), 'http://twin.io/graphs/{tenant_id}/'))"
+            graph_filter = self._build_tenant_graph_filter(tenant_id)
 
             query = f"""
             PREFIX ts: <{self.TS}>
@@ -755,21 +988,89 @@ class TwinRDFService:
     # Private Helper Methods - Tenant Filtering
     # ========================================================================
 
+    async def _insert_inverse_relationships(
+        self,
+        interface_data: Dict[str, Any],
+        tenant_id: str,
+    ) -> None:
+        """
+        For each outgoing relationship with a known inverse type, insert the inverse
+        relationship node directly into the TARGET thing's named graph via SPARQL INSERT.
+
+        This ensures each thing's own graph contains its relationships (both forward
+        relationships it owns, and inverse relationships that others have toward it).
+        Historical data is preserved: when the source is deleted, the inverse node
+        in the target's graph is set to Inactive instead of being dropped.
+        """
+        iface_name = interface_data["metadata"]["name"]
+        interface_uri = create_interface_uri(iface_name)
+        spec = interface_data.get("spec", {})
+        graph_prefix = f"http://twin.io/graphs/{tenant_id}/"
+
+        for rel in spec.get("relationships", []):
+            rel_type = rel.get("relationship_type") or rel.get("type", "")
+            inverse_type = get_inverse_type(rel_type) if rel_type else None
+            if not inverse_type:
+                continue
+
+            target_name = rel.get("interface", "")
+            if not target_name:
+                continue
+
+            target_interface_uri = create_interface_uri(target_name)
+            inv_rel_name = f"{rel['name']}-inv"
+            inv_rel_uri = create_relationship_uri(target_name, inv_rel_name)
+
+            # Find the target thing's named graph
+            find_graph_query = f"""
+            PREFIX ts: <{self.TS}>
+            SELECT DISTINCT ?g WHERE {{
+                GRAPH ?g {{ <{target_interface_uri}> a ts:TwinInterface . }}
+                FILTER(STRSTARTS(STR(?g), "{graph_prefix}"))
+            }}
+            """
+            results = await self._execute_query(find_graph_query)
+            rows = self._parse_sparql_results(results)
+            if not rows:
+                logger.warning(
+                    f"Cannot insert inverse relationship: target graph not found for '{target_name}'"
+                )
+                continue
+
+            target_graph_uri = rows[0].get("g", "")
+            if not target_graph_uri:
+                continue
+
+            insert_query = f"""
+            PREFIX ts: <{self.TS}>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+            INSERT {{
+                GRAPH <{target_graph_uri}> {{
+                    <{inv_rel_uri}> a ts:Relationship .
+                    <{inv_rel_uri}> ts:relationshipName "{inv_rel_name}" .
+                    <{inv_rel_uri}> ts:sourceInterface <{target_interface_uri}> .
+                    <{inv_rel_uri}> ts:targetInterface <{interface_uri}> .
+                    <{inv_rel_uri}> ts:relationshipType ts:{inverse_type} .
+                    <{inv_rel_uri}> ts:relationshipStatus ts:Active .
+                    <{target_interface_uri}> ts:hasRelationship <{inv_rel_uri}> .
+                }}
+            }} WHERE {{}}
+            """
+            await self._execute_update(insert_query)
+            logger.info(
+                f"Inserted inverse relationship '{inv_rel_name}' ({inverse_type}) "
+                f"into graph: {target_graph_uri}"
+            )
+
     def _build_tenant_graph_filter(self, tenant_id: Optional[str] = None) -> str:
         """
         Build a SPARQL FILTER clause for tenant-based graph filtering.
 
-        When a specific tenant is provided, includes both that tenant's graphs
-        and the 'default' tenant graphs (since things may be stored under default).
+        Each tenant sees only its own graphs. No cross-tenant bleed.
         """
-        if not tenant_id or tenant_id == "default":
-            return ""
-        return (
-            f"FILTER("
-            f"STRSTARTS(STR(?graph), 'http://twin.io/graphs/{tenant_id}/') "
-            f"|| STRSTARTS(STR(?graph), 'http://twin.io/graphs/default/')"
-            f")"
-        )
+        effective = tenant_id if tenant_id else "default"
+        return f"FILTER(STRSTARTS(STR(?graph), 'http://twin.io/graphs/{effective}/'))"
 
     # ========================================================================
     # Private Helper Methods - RDF Conversion
@@ -851,12 +1152,30 @@ class TwinRDFService:
             rel_uri = create_relationship_uri(interface_name, rel["name"])
             graph.add((rel_uri, RDF.type, self.TS.Relationship))
             graph.add((rel_uri, self.TS.relationshipName, Literal(rel["name"])))
-            graph.add((rel_uri, self.TS.targetInterface, Literal(rel["interface"])))
+            # targetInterface: URI referansı
+            target_interface_uri = create_interface_uri(rel["interface"])
+            graph.add((rel_uri, self.TS.targetInterface, target_interface_uri))
+            # sourceInterface: kaynak interface referansı (çift yönlü sorgulama için)
+            graph.add((rel_uri, self.TS.sourceInterface, interface_uri))
+
+            # relationshipType (SSN/SOSA type vocabulary)
+            rel_type = rel.get("relationship_type") or rel.get("type", "")
+            if rel_type and rel_type in INVERSE_TYPE_MAP or rel_type in INVERSE_TYPE_MAP.values():
+                graph.add((rel_uri, self.TS.relationshipType, self.TS[rel_type]))
+            elif rel_type:
+                graph.add((rel_uri, self.TS.relationshipType, self.TS[rel_type]))
+
+            # relationshipStatus: Active by default
+            graph.add((rel_uri, self.TS.relationshipStatus, self.TS.Active))
 
             if "description" in rel and rel["description"]:
                 graph.add((rel_uri, self.TS.description, Literal(rel["description"])))
 
+            # Outgoing: kaynak interface → relationship node
             graph.add((interface_uri, self.TS.hasRelationship, rel_uri))
+
+            # Inverse relationship is inserted into the TARGET's named graph
+            # via SPARQL INSERT in store_twin_yaml — not here (sync graph only holds source data)
 
         # Commands
         for cmd in spec.get("commands", []):
@@ -1080,10 +1399,19 @@ class TwinRDFService:
             if "relName" in binding:
                 rel_name = binding["relName"]["value"]
                 if rel_name not in seen_rels:
+                    rel_type_uri = binding.get("relType", {}).get("value", "")
+                    rel_type_short = rel_type_uri.split("#")[-1] if rel_type_uri else ""
+                    rel_status_uri = binding.get("relStatus", {}).get("value", "")
+                    rel_status_short = rel_status_uri.split("#")[-1] if rel_status_uri else "Active"
+                    # targetInterface URI'den name çıkar
+                    rel_target_uri = binding.get("relTarget", {}).get("value", "")
+                    rel_target_name = rel_target_uri.split("/")[-1] if rel_target_uri else ""
                     interface["relationships"].append({
                         "name": rel_name,
-                        "targetInterface": binding.get("relTarget", {}).get("value"),
-                        "description": binding.get("relDesc", {}).get("value")
+                        "targetInterface": rel_target_name or rel_target_uri,
+                        "description": binding.get("relDesc", {}).get("value"),
+                        "relationshipType": rel_type_short,
+                        "status": rel_status_short,
                     })
                     seen_rels.add(rel_name)
 

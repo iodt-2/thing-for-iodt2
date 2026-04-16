@@ -49,6 +49,7 @@ class TwinRelationship(BaseModel):
     name: str
     interface: str = Field(..., description="Target interface name")
     description: Optional[str] = None
+    relationship_type: Optional[str] = None  # feeds, controls, contains, monitors, dependsOn
 
     class Config:
         extra = "allow"

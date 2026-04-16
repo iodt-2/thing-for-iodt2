@@ -7,12 +7,15 @@
 
 import axiosInstance from "./axios";
 
-// Get tenant headers from localStorage
+// Get tenant headers from localStorage — reads 'currentTenant' (JSON) set by useTenantStore
 const getTenantHeaders = () => {
   try {
-    const selectedTenant = localStorage.getItem("selectedTenant");
-    if (selectedTenant) {
-      return { "X-Tenant-ID": selectedTenant };
+    const tenantData = localStorage.getItem("currentTenant");
+    if (tenantData) {
+      const tenant = JSON.parse(tenantData);
+      if (tenant?.tenant_id) {
+        return { "X-Tenant-ID": tenant.tenant_id };
+      }
     }
   } catch (error) {
     console.error("Error getting tenant headers:", error);
@@ -150,6 +153,42 @@ const deleteInterface = async (interfaceName) => {
 };
 
 /**
+ * Get relationship dependencies for a TwinInterface (before deletion)
+ * @param {string} interfaceName
+ * @returns {Promise<Object>} { forward_count, inverse_count, forward_targets, inverse_sources }
+ */
+const getDependencies = async (interfaceName) => {
+  try {
+    const response = await axiosInstance.get(
+      `/v2/twin/rdf/interfaces/${interfaceName}/dependencies`,
+      { headers: getTenantHeaders() }
+    );
+    return response.data;
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+/**
+ * Reactivate an Inactive relationship
+ * @param {string} interfaceName - Source interface name
+ * @param {string} relName - Relationship name
+ * @returns {Promise<Object>} Reactivation result
+ */
+const reactivateRelationship = async (interfaceName, relName) => {
+  try {
+    const response = await axiosInstance.put(
+      `/v2/twin/rdf/interfaces/${interfaceName}/relationships/${relName}/reactivate`,
+      {},
+      { headers: getTenantHeaders() }
+    );
+    return response.data;
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+/**
  * Execute custom SPARQL query
  * @param {string} query - SPARQL SELECT query
  * @param {number} limit - Maximum results
@@ -223,6 +262,10 @@ const TwinService = {
 
   // Delete
   deleteInterface,
+
+  // Dependencies & Reactivation
+  getDependencies,
+  reactivateRelationship,
 
   // Query
   executeSparqlQuery,

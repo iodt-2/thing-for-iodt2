@@ -22,10 +22,17 @@ const axiosInstance = axios.create({
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Tenant header injection
-    const selectedTenant = localStorage.getItem("selectedTenant");
-    if (selectedTenant) {
-      config.headers["X-Tenant-ID"] = selectedTenant;
+    // Tenant header injection — reads from 'currentTenant' (JSON object set by useTenantStore)
+    try {
+      const tenantData = localStorage.getItem("currentTenant");
+      if (tenantData) {
+        const tenant = JSON.parse(tenantData);
+        if (tenant?.tenant_id) {
+          config.headers["X-Tenant-ID"] = tenant.tenant_id;
+        }
+      }
+    } catch {
+      // ignore parse errors
     }
 
     return config;

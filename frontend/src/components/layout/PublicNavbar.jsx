@@ -17,7 +17,7 @@ const PublicNavbar = () => {
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
             <Globe2 className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">Ditto IoT Manager</span>
+            <span className="text-xl font-bold">IODT2 Demo</span>
           </Link>
           <div className="flex items-center space-x-4">
             <Link to="/about">

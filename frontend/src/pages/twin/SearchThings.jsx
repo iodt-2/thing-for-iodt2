@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Tag, Filter, X, ChevronDown, Save, FileSearch, Clock, Code, Play, Download, Copy, CheckCheck, AlertCircle, Loader2, BookOpen } from "lucide-react";
+import { Search, Tag, Filter, X, ChevronDown, Save, FileSearch, Clock, Code, Play, Download, Copy, CheckCheck, AlertCircle, Loader2, BookOpen, Network, Database, Layers, BarChart2, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,20 +43,19 @@ const SearchThings = () => {
   const [valueSearchOperator, setValueSearchOperator] = useState("gt");
   const [valueSearchValue, setValueSearchValue] = useState(30);
 
-  // Default SPARQL query updated for Twin ontology
+  // Default SPARQL query — tüm TwinInterface'leri listeler
   const [sparqlQuery, setSparqlQuery] = useState(`PREFIX ts: <http://twin.dtd/ontology#>
-PREFIX tsd: <http://iodt2.com/>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-SELECT ?thing ?name ?type ?description
+SELECT DISTINCT ?interface ?name ?thingType ?dtdlCategory
 WHERE {
   GRAPH ?g {
-    ?thing a ?type .
-    ?thing ts:name ?name .
-    FILTER(?type IN (ts:TwinInterface, ts:TwinInstance))
-    OPTIONAL { ?thing ts:description ?description }
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
+    OPTIONAL { ?interface ts:thingType ?thingType }
+    OPTIONAL { ?interface ts:dtdlCategory ?dtdlCategory }
   }
 }
+ORDER BY ?name
 LIMIT 100`);
 
   const [isCopied, setIsCopied] = useState(false);
@@ -75,56 +74,109 @@ LIMIT 100`);
   const [searchHistory, setSearchHistory] = useState([]);
 
   // Query Templates Dialog state
-  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all')
+  const [expandedTemplate, setExpandedTemplate] = useState(null)
 
-  // SPARQL templates - Twin ontology
-  const [sparqlTemplates] = useState([
+  const TEMPLATE_CATEGORIES = [
+    { id: 'all',          label: 'All',           icon: Layers },
+    { id: 'basic',        label: 'Basic',         icon: Search },
+    { id: 'properties',   label: 'Properties',    icon: Tag },
+    { id: 'relationships',label: 'Relationships', icon: Network },
+    { id: 'instances',    label: 'Instances',     icon: Database },
+    { id: 'analytics',    label: 'Analytics',     icon: BarChart2 },
+  ]
+
+  // SPARQL templates — covering all ontology layers
+  const sparqlTemplates = [
+    // ── TEMEL ─────────────────────────────────────────────────────────────────
     {
       id: 1,
-      name: "All Things",
-      description: "List all TwinInterfaces and TwinInstances",
+      category: 'basic',
+      name: 'All TwinInterfaces',
+      description: 'Lists all interfaces in the system with name, thing type and DTDL category.',
       query: `PREFIX ts: <http://twin.dtd/ontology#>
-PREFIX tsd: <http://iodt2.com/>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-SELECT ?thing ?name ?type ?description
+SELECT DISTINCT ?interface ?name ?thingType ?dtdlCategory
 WHERE {
   GRAPH ?g {
-    ?thing a ?type .
-    ?thing ts:name ?name .
-    FILTER(?type IN (ts:TwinInterface, ts:TwinInstance))
-    OPTIONAL { ?thing ts:description ?description }
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
+    OPTIONAL { ?interface ts:thingType ?thingType }
+    OPTIONAL { ?interface ts:dtdlCategory ?dtdlCategory }
   }
 }
-LIMIT 100`
+ORDER BY ?name
+LIMIT 100`,
     },
     {
       id: 2,
-      name: "Search by Name",
-      description: "Find things containing a specific name",
+      category: 'basic',
+      name: 'İsme Göre Ara',
+      description: 'Finds things whose name contains a specific text. Replace "sensor" with your own term.',
       query: `PREFIX ts: <http://twin.dtd/ontology#>
-PREFIX tsd: <http://iodt2.com/>
 
-SELECT ?thing ?name ?type ?description
+SELECT ?interface ?name ?thingType ?dtdlCategory
 WHERE {
   GRAPH ?g {
-    ?thing a ?type .
-    ?thing ts:name ?name .
-    FILTER(?type IN (ts:TwinInterface, ts:TwinInstance))
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
     FILTER(CONTAINS(LCASE(?name), "sensor"))
-    OPTIONAL { ?thing ts:description ?description }
+    OPTIONAL { ?interface ts:thingType ?thingType }
+    OPTIONAL { ?interface ts:dtdlCategory ?dtdlCategory }
   }
 }
-LIMIT 50`
+ORDER BY ?name
+LIMIT 50`,
     },
     {
       id: 3,
-      name: "Interfaces with Properties",
-      description: "List interfaces and their properties",
+      category: 'basic',
+      name: 'Filter by Thing Type',
+      description: 'Filters by ts:thingType value. Replace "sensor" with "device" or "component".',
       query: `PREFIX ts: <http://twin.dtd/ontology#>
-PREFIX tsd: <http://iodt2.com/>
 
-SELECT ?interface ?name ?propName ?propType ?unit
+SELECT ?interface ?name ?dtdlCategory ?dtdlInterface
+WHERE {
+  GRAPH ?g {
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
+    ?interface ts:thingType "sensor" .
+    OPTIONAL { ?interface ts:dtdlCategory ?dtdlCategory }
+    OPTIONAL { ?interface ts:dtdlInterface ?dtdlInterface }
+  }
+}
+ORDER BY ?name`,
+    },
+    {
+      id: 4,
+      category: 'basic',
+      name: 'Filter by DTDL Category',
+      description: 'Lists things matching a DTDL category. Replace "environmental" with "seismic" or "base".',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?interface ?name ?thingType ?dtdlInterface
+WHERE {
+  GRAPH ?g {
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
+    ?interface ts:dtdlCategory "environmental" .
+    OPTIONAL { ?interface ts:thingType ?thingType }
+    OPTIONAL { ?interface ts:dtdlInterface ?dtdlInterface }
+  }
+}
+ORDER BY ?name`,
+    },
+
+    // ── PROPERTIES ────────────────────────────────────────────────────────────
+    {
+      id: 5,
+      category: 'properties',
+      name: 'Interface + All Properties',
+      description: 'Lists all properties (name, type, unit, writable) for every interface.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?name ?propName ?propType ?unit ?writable
 WHERE {
   GRAPH ?g {
     ?interface a ts:TwinInterface .
@@ -133,51 +185,270 @@ WHERE {
     ?prop ts:propertyName ?propName .
     ?prop ts:propertyType ?propType .
     OPTIONAL { ?prop ts:unit ?unit }
+    OPTIONAL { ?prop ts:writable ?writable }
   }
 }
 ORDER BY ?name ?propName
-LIMIT 100`
+LIMIT 200`,
     },
     {
-      id: 4,
-      name: "Instance Relationships",
-      description: "Query relationships between instances",
+      id: 6,
+      category: 'properties',
+      name: 'Search by Property Name',
+      description: 'Finds things that have a property matching the given name. Replace "temperature" with your term.',
       query: `PREFIX ts: <http://twin.dtd/ontology#>
-PREFIX tsd: <http://iodt2.com/>
 
-SELECT ?instance ?name ?relName ?targetName
+SELECT ?name ?propName ?propType ?unit
+WHERE {
+  GRAPH ?g {
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
+    ?interface ts:hasProperty ?prop .
+    ?prop ts:propertyName ?propName .
+    ?prop ts:propertyType ?propType .
+    FILTER(CONTAINS(LCASE(?propName), "temperature"))
+    OPTIONAL { ?prop ts:unit ?unit }
+  }
+}
+ORDER BY ?name`,
+    },
+    {
+      id: 7,
+      category: 'properties',
+      name: 'Writable Properties',
+      description: 'Lists all properties marked as x-writable: true across all interfaces.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?name ?propName ?propType ?unit
+WHERE {
+  GRAPH ?g {
+    ?interface a ts:TwinInterface .
+    ?interface ts:name ?name .
+    ?interface ts:hasProperty ?prop .
+    ?prop ts:propertyName ?propName .
+    ?prop ts:propertyType ?propType .
+    ?prop ts:writable "true"^^xsd:boolean .
+    OPTIONAL { ?prop ts:unit ?unit }
+  }
+}
+ORDER BY ?name ?propName`,
+    },
+
+    // ── RELATIONSHIPS ─────────────────────────────────────────────────────────
+    {
+      id: 8,
+      category: 'relationships',
+      name: 'All Active Relationships',
+      description: 'Lists all Relationship nodes with ts:Active status — source, target, and type.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?sourceName ?relName ?relType ?targetName
+WHERE {
+  GRAPH ?g {
+    ?rel a ts:Relationship .
+    ?rel ts:relationshipName ?relName .
+    ?rel ts:relationshipStatus ts:Active .
+    ?rel ts:sourceInterface ?src .
+    ?rel ts:targetInterface ?tgt .
+    OPTIONAL { ?src ts:name ?sourceName }
+    OPTIONAL { ?tgt ts:name ?targetName }
+    OPTIONAL {
+      ?rel ts:relationshipType ?relTypeUri .
+      BIND(STRAFTER(STR(?relTypeUri), "#") AS ?relType)
+    }
+  }
+}
+ORDER BY ?sourceName ?relName
+LIMIT 100`,
+    },
+    {
+      id: 9,
+      category: 'relationships',
+      name: 'Inactive (Broken) Relationships',
+      description: 'Lists relationships that were set to ts:Inactive because their target was deleted.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?sourceName ?relName ?relType ?targetName
+WHERE {
+  GRAPH ?g {
+    ?rel a ts:Relationship .
+    ?rel ts:relationshipName ?relName .
+    ?rel ts:relationshipStatus ts:Inactive .
+    ?rel ts:sourceInterface ?src .
+    ?rel ts:targetInterface ?tgt .
+    OPTIONAL { ?src ts:name ?sourceName }
+    OPTIONAL { ?tgt ts:name ?targetName }
+    OPTIONAL {
+      ?rel ts:relationshipType ?relTypeUri .
+      BIND(STRAFTER(STR(?relTypeUri), "#") AS ?relType)
+    }
+  }
+}
+ORDER BY ?sourceName
+LIMIT 100`,
+    },
+    {
+      id: 10,
+      category: 'relationships',
+      name: 'Relationships by Type (feeds)',
+      description: 'Filters relationships by a specific type. Replace ts:feeds with ts:controls, ts:contains, etc.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?sourceName ?relName ?targetName ?status
+WHERE {
+  GRAPH ?g {
+    ?rel a ts:Relationship .
+    ?rel ts:relationshipType ts:feeds .
+    ?rel ts:relationshipName ?relName .
+    ?rel ts:sourceInterface ?src .
+    ?rel ts:targetInterface ?tgt .
+    OPTIONAL { ?src ts:name ?sourceName }
+    OPTIONAL { ?tgt ts:name ?targetName }
+    OPTIONAL {
+      ?rel ts:relationshipStatus ?statusUri .
+      BIND(STRAFTER(STR(?statusUri), "#") AS ?status)
+    }
+  }
+}
+ORDER BY ?sourceName`,
+    },
+    {
+      id: 11,
+      category: 'relationships',
+      name: 'Outgoing Relationships of a Thing',
+      description: 'Lists all relationships going out from a specific thing. Replace the name value.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?relName ?relType ?targetName ?status
+WHERE {
+  GRAPH ?g {
+    ?src a ts:TwinInterface .
+    ?src ts:name "iodt2-temp1" .
+    ?src ts:hasRelationship ?rel .
+    ?rel ts:relationshipName ?relName .
+    ?rel ts:targetInterface ?tgt .
+    OPTIONAL { ?tgt ts:name ?targetName }
+    OPTIONAL {
+      ?rel ts:relationshipType ?relTypeUri .
+      BIND(STRAFTER(STR(?relTypeUri), "#") AS ?relType)
+    }
+    OPTIONAL {
+      ?rel ts:relationshipStatus ?statusUri .
+      BIND(STRAFTER(STR(?statusUri), "#") AS ?status)
+    }
+  }
+}`,
+    },
+    {
+      id: 12,
+      category: 'relationships',
+      name: 'Incoming Relationships to a Thing',
+      description: 'Lists all relationships targeting a specific thing via ts:targetInterface. Replace the name value.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?sourceName ?relName ?relType ?status
+WHERE {
+  GRAPH ?g {
+    ?rel a ts:Relationship .
+    ?rel ts:targetInterface ?tgt .
+    ?tgt ts:name "iodt2-gateway1" .
+    ?rel ts:sourceInterface ?src .
+    ?rel ts:relationshipName ?relName .
+    OPTIONAL { ?src ts:name ?sourceName }
+    OPTIONAL {
+      ?rel ts:relationshipType ?relTypeUri .
+      BIND(STRAFTER(STR(?relTypeUri), "#") AS ?relType)
+    }
+    OPTIONAL {
+      ?rel ts:relationshipStatus ?statusUri .
+      BIND(STRAFTER(STR(?statusUri), "#") AS ?status)
+    }
+  }
+}`,
+    },
+
+    // ── INSTANCES ─────────────────────────────────────────────────────────────
+    {
+      id: 13,
+      category: 'instances',
+      name: 'All TwinInstances',
+      description: 'Lists all TwinInstances and the TwinInterface each one is linked to.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?instance ?instanceName ?interfaceName
 WHERE {
   GRAPH ?g {
     ?instance a ts:TwinInstance .
-    ?instance ts:name ?name .
+    ?instance ts:name ?instanceName .
+    OPTIONAL {
+      ?instance ts:instanceOf ?iface .
+      ?iface ts:name ?interfaceName .
+    }
+  }
+}
+ORDER BY ?instanceName
+LIMIT 100`,
+    },
+    {
+      id: 14,
+      category: 'instances',
+      name: 'Instance Relationships',
+      description: 'Lists runtime connections (ts:InstanceRelationship) between TwinInstances.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?instanceName ?relName ?targetInstanceName
+WHERE {
+  GRAPH ?g {
+    ?instance a ts:TwinInstance .
+    ?instance ts:name ?instanceName .
     ?instance ts:hasInstanceRelationship ?rel .
     ?rel ts:relationshipName ?relName .
     ?rel ts:targetInstance ?target .
-    ?target ts:name ?targetName .
+    OPTIONAL { ?target ts:name ?targetInstanceName }
   }
 }
-LIMIT 100`
+ORDER BY ?instanceName
+LIMIT 100`,
     },
-    {
-      id: 5,
-      name: "Things by Type",
-      description: "Find things filtered by thing type (device, sensor, component)",
-      query: `PREFIX ts: <http://twin.dtd/ontology#>
-PREFIX tsd: <http://iodt2.com/>
 
-SELECT ?thing ?name ?thingType ?description
+    // ── ANALYTICS ─────────────────────────────────────────────────────────────
+    {
+      id: 15,
+      category: 'analytics',
+      name: 'Relationship Type Statistics',
+      description: 'Shows how many Active and Inactive instances exist for each relationship type.',
+      query: `PREFIX ts: <http://twin.dtd/ontology#>
+
+SELECT ?relType (COUNT(?rel) AS ?total)
+       (SUM(IF(?statusUri = ts:Active, 1, 0)) AS ?active)
+       (SUM(IF(?statusUri = ts:Inactive, 1, 0)) AS ?inactive)
 WHERE {
   GRAPH ?g {
-    ?thing a ts:TwinInterface .
-    ?thing ts:name ?name .
-    ?thing ts:thingType ?thingType .
-    OPTIONAL { ?thing ts:description ?description }
+    ?rel a ts:Relationship .
+    OPTIONAL { ?rel ts:relationshipType ?relType }
+    OPTIONAL { ?rel ts:relationshipStatus ?statusUri }
   }
 }
-ORDER BY ?thingType ?name
-LIMIT 100`
-    }
-  ]);
+GROUP BY ?relType
+ORDER BY DESC(?toplam)`,
+    },
+    {
+      id: 16,
+      category: 'analytics',
+      name: 'Named Graph List',
+      description: 'Shows all named graphs in Fuseki and the triple count for each one.',
+      query: `SELECT ?g (COUNT(*) AS ?tripleCount)
+WHERE {
+  GRAPH ?g {
+    ?s ?p ?o .
+  }
+  FILTER(STRSTARTS(STR(?g), "http://twin.io/graphs/"))
+}
+GROUP BY ?g
+ORDER BY ?g`,
+    },
+  ]
 
   // Add filter
   const addFilter = (filter) => {
@@ -232,7 +503,7 @@ LIMIT 100`
           id: Date.now(),
           query: sparqlQuery.substring(0, 50) + (sparqlQuery.length > 50 ? '...' : ''),
           fullQuery: sparqlQuery,
-          timestamp: new Date().toLocaleString(),
+          timestamp: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
           type: 'sparql',
           count: results?.length || 0
         };
@@ -254,7 +525,7 @@ LIMIT 100`
         const newSearch = {
           id: Date.now(),
           query: query,
-          timestamp: new Date().toLocaleString(),
+          timestamp: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
           type: 'standard',
           count: results?.length || 0
         };
@@ -291,7 +562,7 @@ LIMIT 100`
       const newSearch = {
         id: Date.now(),
         query: `${valueSearchProperty} ${valueSearchOperator} ${valueSearchValue}`,
-        timestamp: new Date().toLocaleString(),
+        timestamp: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
         type: 'value',
         count: data.count,
         queryTime: data.query_time_ms
@@ -821,44 +1092,116 @@ LIMIT 100`
           </Card>
 
           {/* Query Templates Dialog */}
-          <Dialog open={showTemplatesDialog} onOpenChange={setShowTemplatesDialog}>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
+          <Dialog open={showTemplatesDialog} onOpenChange={(open) => {
+            setShowTemplatesDialog(open)
+            if (!open) { setExpandedTemplate(null); setTemplateCategoryFilter('all') }
+          }}>
+            <DialogContent className="max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+              <DialogHeader className="shrink-0">
                 <DialogTitle className="flex items-center gap-2">
                   <BookOpen className="h-5 w-5" />
-                  Query Templates
+                  SPARQL Query Templates
                 </DialogTitle>
                 <DialogDescription>
-                  Select a pre-built SPARQL query template
+                  Ready-made queries aligned with the ontology — select one to load it into the editor.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                {sparqlTemplates.map((template) => (
-                  <Card key={template.id} className="cursor-pointer hover:border-primary/50 transition-colors">
-                    <CardHeader className="py-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        {template.name}
-                        {template.domain === "earthquake" && (
-                          <Badge variant="destructive" className="text-xs">Earthquake</Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription className="text-xs">{template.description}</CardDescription>
-                    </CardHeader>
-                    <CardFooter className="pt-0 pb-3">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          applyTemplate(template.query);
-                          setShowTemplatesDialog(false);
-                        }}
-                      >
-                        Use Template
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
+
+              {/* Category filter pills */}
+              <div className="flex flex-wrap gap-2 shrink-0 border-b pb-3">
+                {TEMPLATE_CATEGORIES.map(cat => {
+                  const Icon = cat.icon
+                  const count = cat.id === 'all'
+                    ? sparqlTemplates.length
+                    : sparqlTemplates.filter(t => t.category === cat.id).length
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => { setTemplateCategoryFilter(cat.id); setExpandedTemplate(null) }}
+                      className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        templateCategoryFilter === cat.id
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-muted/40 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {cat.label}
+                      <span className={`ml-0.5 ${templateCategoryFilter === cat.id ? 'opacity-80' : 'opacity-60'}`}>
+                        ({count})
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Template grid */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-3">
+                  {sparqlTemplates
+                    .filter(t => templateCategoryFilter === 'all' || t.category === templateCategoryFilter)
+                    .map(template => {
+                      const isExpanded = expandedTemplate === template.id
+                      const catInfo = TEMPLATE_CATEGORIES.find(c => c.id === template.category)
+                      return (
+                        <Card
+                          key={template.id}
+                          className={`transition-all border ${isExpanded ? 'border-primary/60 shadow-sm' : 'hover:border-primary/30'}`}
+                        >
+                          <CardHeader className="py-3 pb-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <CardTitle className="text-sm font-semibold leading-tight">
+                                  {template.name}
+                                </CardTitle>
+                                <CardDescription className="text-xs mt-1 line-clamp-2">
+                                  {template.description}
+                                </CardDescription>
+                              </div>
+                              {catInfo && (
+                                <Badge variant="outline" className="shrink-0 text-xs gap-1 font-normal">
+                                  <catInfo.icon className="h-2.5 w-2.5" />
+                                  {catInfo.label}
+                                </Badge>
+                              )}
+                            </div>
+                          </CardHeader>
+
+                          {/* Query preview toggle */}
+                          <div className="px-4 pb-1">
+                            <button
+                              onClick={() => setExpandedTemplate(isExpanded ? null : template.id)}
+                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                            >
+                              <Code className="h-3 w-3" />
+                              {isExpanded ? 'Hide query' : 'Preview query'}
+                              <ChevronRight className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            </button>
+                            {isExpanded && (
+                              <pre className="mt-2 text-xs bg-muted rounded-md p-3 overflow-x-auto max-h-48 font-mono leading-relaxed whitespace-pre">
+                                {template.query}
+                              </pre>
+                            )}
+                          </div>
+
+                          <CardFooter className="pt-2 pb-3">
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={() => {
+                                applyTemplate(template.query)
+                                setShowTemplatesDialog(false)
+                                setExpandedTemplate(null)
+                              }}
+                            >
+                              <Play className="h-3 w-3 mr-1.5" />
+                              Load Template
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      )
+                    })
+                  }
+                </div>
               </div>
             </DialogContent>
           </Dialog>

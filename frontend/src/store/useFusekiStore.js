@@ -257,7 +257,7 @@ const useFusekiStore = create((set, get) => ({
       const newSearch = {
         id: Date.now(),
         query: searchQuery,
-        timestamp: new Date().toLocaleString(),
+        timestamp: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
         count: results.length
       };
       
@@ -286,7 +286,7 @@ const useFusekiStore = create((set, get) => ({
       const newSearch = {
         id: Date.now(),
         query: sparqlQuery,
-        timestamp: new Date().toLocaleString(),
+        timestamp: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
         type: 'sparql'
       };
       
@@ -313,7 +313,7 @@ const useFusekiStore = create((set, get) => ({
         name,
         query,
         type: isSparql ? 'sparql' : 'simple',
-        timestamp: new Date().toLocaleString()
+        timestamp: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
       };
       
       set(state => ({ 

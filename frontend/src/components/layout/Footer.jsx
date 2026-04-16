@@ -4,9 +4,9 @@ const Footer = () => {
       <div className="container mx-auto px-4 h-full">
         <div className="grid grid-cols-3 gap-4 items-center h-full text-sm">
           <div>
-            <h3 className="font-semibold">Ditto IoT Manager</h3>
+            <h3 className="font-semibold">IODT2 Demo</h3>
             <p className="text-muted-foreground">
-              Modern IoT device management platform
+              IoT device management platform
             </p>
           </div>
 

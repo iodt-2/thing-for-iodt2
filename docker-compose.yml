@@ -40,7 +40,7 @@ services:
       - CORS_ORIGINS=http://localhost,http://localhost:3005,http://frontend
     volumes:
       - ./backend:/app
-      - iodt2-backend-data:/app/data
+      - ./backend/data:/app/data
     depends_on:
       fuseki:
         condition: service_healthy
@@ -75,8 +75,6 @@ services:
 volumes:
   iodt2-fuseki-data:
     name: iodt2-fuseki-data
-  iodt2-backend-data:
-    name: iodt2-backend-data
 
 networks:
   iodt2-network:

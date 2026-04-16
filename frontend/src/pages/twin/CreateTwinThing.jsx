@@ -11,10 +11,12 @@ import { Plus, Loader2, Check, Trash2, MapPin, Building2, Layers, Info, FileCode
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import TwinService from '@/services/twinService'
 import MapComponent from '@/components/map/MapComponent'
 import { useTranslation } from 'react-i18next'
 import useTenantStore from '@/store/useTenantStore'
+import { useTheme } from '@/components/theme-provider'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DTDLSelectionModal from '@/components/dtdl/DTDLSelectionModal'
 import DTDLValidationPanel from '@/components/dtdl/DTDLValidationPanel'
@@ -27,6 +29,13 @@ const CreateTwinThing = () => {
 
   // Tenant store
   const { currentTenant, fetchTenants } = useTenantStore()
+
+  // Theme — used for Monaco editor
+  const { theme } = useTheme()
+  const monacoTheme = theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ? 'vs-dark'
+    : 'light'
 
   // Form state
   const [formData, setFormData] = useState({
@@ -55,6 +64,10 @@ const CreateTwinThing = () => {
     dtdl_interface_summary: null, // Interface summary for UI
   })
 
+  // Available interfaces for relationship dropdown
+  const [availableInterfaces, setAvailableInterfaces] = useState([])
+  const [interfacesLoading, setInterfacesLoading] = useState(false)
+
   // DTDL Modal state
   const [showDTDLModal, setShowDTDLModal] = useState(false)
 
@@ -68,6 +81,23 @@ const CreateTwinThing = () => {
       fetchTenants(true, true) // Use public endpoint for unauthenticated access
     }
   }, [currentTenant, fetchTenants])
+
+  // Load existing interfaces for relationship target dropdown — re-fetch when tenant changes
+  useEffect(() => {
+    const loadInterfaces = async () => {
+      setInterfacesLoading(true)
+      try {
+        const result = await TwinService.listInterfaces()
+        setAvailableInterfaces(result?.interfaces || [])
+      } catch (error) {
+        console.warn('Failed to load interfaces for relationship dropdown:', error)
+        setAvailableInterfaces([])
+      } finally {
+        setInterfacesLoading(false)
+      }
+    }
+    loadInterfaces()
+  }, [currentTenant])
 
   // Auto-prefix Thing ID with tenant when user types
   const handleIdChange = (value) => {
@@ -85,12 +115,17 @@ const CreateTwinThing = () => {
   // Generate YAML preview when form changes
   useEffect(() => {
     if (formData.id && formData.name) {
-      // Get the normalized ID (without tenant prefix for display)
-      const cleanId = formData.id.includes(':')
+      const tenantPrefix = currentTenant?.tenant_id
+        ? currentTenant.tenant_id.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+        : 'default'
+
+      // Strip tenant prefix if user accidentally typed it, then re-apply
+      const rawId = formData.id.includes(':')
         ? formData.id.split(':')[1]
         : formData.id
-
-      const normalizedId = cleanId.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+      const cleanId = rawId.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '')
+      const prefix = `${tenantPrefix}-`
+      const normalizedName = cleanId.startsWith(prefix) ? cleanId : `${prefix}${cleanId}`
 
       // Build labels section
       const labelsSection = []
@@ -134,13 +169,13 @@ const CreateTwinThing = () => {
       const interfacePreview = `apiVersion: dtd.twin/v0
 kind: TwinInterface
 metadata:
-  name: iodt2-${normalizedId}
+  name: ${normalizedName}
   labels:
 ${labelsSection.join('\n')}${annotationsSection.length > 0 ? `
   annotations:
 ${annotationsSection.join('\n')}` : ''}
 spec:
-  name: iodt2-${normalizedId}
+  name: ${normalizedName}
   properties:
 ${formData.properties.map(p => `    - name: ${p.name}
       type: ${p.type}
@@ -165,12 +200,12 @@ ${formData.commands.map(c => `    - name: ${c.name}
       setInstanceYaml(`apiVersion: dtd.twin/v0
 kind: TwinInstance
 metadata:
-  name: iodt2-${normalizedId}
+  name: ${normalizedName}
   labels:
 ${instanceLabelsSection.join('\n')}
 spec:
-  name: iodt2-${normalizedId}
-  interface: iodt2-${normalizedId}
+  name: ${normalizedName}
+  interface: ${normalizedName}
   twinInstanceRelationships: []`)
     }
   }, [formData, currentTenant])
@@ -320,7 +355,7 @@ spec:
       ...formData,
       relationships: [
         ...formData.relationships,
-        { name: '', target_interface: '', description: '' },
+        { name: '', target_interface: '', description: '', relationship_type: 'feeds' },
       ],
     })
   }
@@ -825,10 +860,20 @@ spec:
               </TabsContent>
 
               <TabsContent value="relationships" className="space-y-4">
+                {/* Relationships explanation banner */}
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {t('createThing.relationshipsHint')}
+                  </AlertDescription>
+                </Alert>
+
                 {formData.relationships.map((rel, index) => (
                   <div key={index} className="border rounded-md p-3 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Relationship {index + 1}</span>
+                      <span className="text-sm font-medium">
+                        {t('createThing.relationship')} {index + 1}
+                      </span>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -837,26 +882,80 @@ spec:
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
+
+                    {/* Relationship type — first so the user picks the semantic before naming */}
+                    <Select
+                      value={rel.relationship_type || 'feeds'}
+                      onValueChange={(value) => updateRelationship(index, 'relationship_type', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('createThing.relationshipTypePlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border shadow-md z-50">
+                        <SelectItem value="feeds">
+                          <span className="font-mono text-xs font-semibold text-primary mr-2">feeds</span>
+                          <span className="text-muted-foreground">{t('createThing.relFeedsDesc')}</span>
+                        </SelectItem>
+                        <SelectItem value="controls">
+                          <span className="font-mono text-xs font-semibold text-primary mr-2">controls</span>
+                          <span className="text-muted-foreground">{t('createThing.relControlsDesc')}</span>
+                        </SelectItem>
+                        <SelectItem value="contains">
+                          <span className="font-mono text-xs font-semibold text-primary mr-2">contains</span>
+                          <span className="text-muted-foreground">{t('createThing.relContainsDesc')}</span>
+                        </SelectItem>
+                        <SelectItem value="monitors">
+                          <span className="font-mono text-xs font-semibold text-primary mr-2">monitors</span>
+                          <span className="text-muted-foreground">{t('createThing.relMonitorsDesc')}</span>
+                        </SelectItem>
+                        <SelectItem value="dependsOn">
+                          <span className="font-mono text-xs font-semibold text-primary mr-2">dependsOn</span>
+                          <span className="text-muted-foreground">{t('createThing.relDependsOnDesc')}</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Target twin */}
+                    <Select
+                      value={rel.target_interface}
+                      onValueChange={(value) => updateRelationship(index, 'target_interface', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          interfacesLoading
+                            ? t('createThing.relationshipTargetLoading')
+                            : availableInterfaces.length === 0
+                              ? t('createThing.relationshipTargetEmpty')
+                              : t('createThing.relationshipTargetPlaceholder')
+                        } />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border shadow-md z-50">
+                        {availableInterfaces.map((iface) => (
+                          <SelectItem key={iface.name} value={iface.name}>
+                            {iface.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Optional name — shown after type+target so user has context */}
                     <Input
-                      placeholder="Relationship Name"
+                      placeholder={t('createThing.relationshipNamePlaceholder')}
                       value={rel.name}
                       onChange={(e) => updateRelationship(index, 'name', e.target.value)}
                     />
+
                     <Input
-                      placeholder="Target Interface (e.g., iodt2-location)"
-                      value={rel.target_interface}
-                      onChange={(e) => updateRelationship(index, 'target_interface', e.target.value)}
-                    />
-                    <Input
-                      placeholder="Description (optional)"
+                      placeholder={t('createThing.relationshipDescription')}
                       value={rel.description || ''}
                       onChange={(e) => updateRelationship(index, 'description', e.target.value)}
                     />
                   </div>
                 ))}
+
                 <Button variant="outline" onClick={addRelationship} className="w-full">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Relationship
+                  {t('createThing.addRelationship')}
                 </Button>
               </TabsContent>
 
@@ -994,6 +1093,7 @@ spec:
                     <Editor
                       height="400px"
                       defaultLanguage="yaml"
+                      theme={monacoTheme}
                       value={interfaceYaml}
                       options={{
                         minimap: { enabled: false },
@@ -1010,6 +1110,7 @@ spec:
                     <Editor
                       height="400px"
                       defaultLanguage="yaml"
+                      theme={monacoTheme}
                       value={instanceYaml}
                       options={{
                         minimap: { enabled: false },

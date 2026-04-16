@@ -66,6 +66,7 @@ class TwinRelationshipInput(BaseModel):
     target_interface: str
     target_instance: Optional[str] = None
     description: Optional[str] = None
+    relationship_type: Optional[str] = "feeds"  # feeds, controls, contains, monitors, dependsOn
 
 
 class TwinCommandInput(BaseModel):
@@ -167,6 +168,23 @@ async def create_twin_thing(
     try:
         logger.info(f"Creating Twin Thing: {request.id}")
 
+        # Validate relationship targets exist in RDF store
+        if request.relationships and request.store_in_rdf:
+            rdf_service = TwinRDFService()
+            invalid_targets = []
+            for rel in request.relationships:
+                target = rel.target_interface.strip() if rel.target_interface else ""
+                if target:
+                    exists = await rdf_service.interface_exists(target, tenant_id=tenant_id)
+                    if not exists:
+                        invalid_targets.append(target)
+            if invalid_targets:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Relationship hedefleri bulunamadı: {', '.join(invalid_targets)}. "
+                           f"Hedef interface'ler önce oluşturulmalıdır."
+                )
+
         # Build thing_description dict from form data
         thing_description = {
             "@id": request.id,
@@ -181,8 +199,12 @@ async def create_twin_thing(
             "links": []
         }
 
-        # Convert properties
+        # Convert properties (deduplicate by name — first entry wins)
+        seen_props: set = set()
         for prop in request.properties:
+            if prop.name in seen_props:
+                continue
+            seen_props.add(prop.name)
             thing_description["properties"][prop.name] = {
                 "type": prop.type,
                 "description": prop.description,
@@ -201,10 +223,15 @@ async def create_twin_thing(
 
         # Convert relationships to links
         for rel in request.relationships:
+            rel_name = rel.name.strip() if rel.name else ""
+            if not rel_name:
+                target_short = rel.target_interface.split("-")[-1] if rel.target_interface else "target"
+                rel_name = f"{rel.relationship_type or 'feeds'}_{target_short}"
             thing_description["links"].append({
-                "rel": rel.name,
+                "rel": rel_name,
                 "href": rel.target_interface,
-                "title": rel.description
+                "title": rel.description,
+                "relationship_type": rel.relationship_type or "feeds",
             })
 
         # Initialize generator
@@ -221,13 +248,14 @@ async def create_twin_thing(
                 "serial_number": request.serial_number,
                 "firmware_version": request.firmware_version,
             },
+            tenant_id=tenant_id,
             dtdl_interface=request.dtdl_interface
         )
 
-        instance_yaml = generator.generate_twin_instance_yaml(thing_description)
+        instance_yaml = generator.generate_twin_instance_yaml(thing_description, tenant_id=tenant_id)
 
         # Get normalized names
-        interface_name = generator._normalize_name(request.id)
+        interface_name = generator._normalize_name(request.id, tenant_id)
         instance_name = interface_name
 
         # DEBUG: Tüm formatları diske yaz (ontoloji doğrulama için)
@@ -367,8 +395,8 @@ async def export_twin_zip(
             ]
         }
 
-        interface_yaml = generator.generate_twin_interface_yaml(thing_description)
-        instance_yaml = generator.generate_twin_instance_yaml(thing_description)
+        interface_yaml = generator.generate_twin_interface_yaml(thing_description, tenant_id=tenant_id)
+        instance_yaml = generator.generate_twin_instance_yaml(thing_description, tenant_id=tenant_id)
 
         # Create ZIP
         zip_buffer = io.BytesIO()
@@ -639,8 +667,8 @@ async def delete_twin_interface(
             }
         else:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to delete interface"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Interface '{interface_name}' not found in tenant '{tenant_id}'"
             )
 
     except HTTPException:
@@ -650,6 +678,119 @@ async def delete_twin_interface(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete interface: {str(e)}"
+        )
+
+
+@router.get(
+    "/rdf/interfaces/{interface_name}/dependencies",
+    summary="Get relationship dependencies for a TwinInterface",
+)
+async def get_dependencies(
+    interface_name: str = Path(..., description="Name of the TwinInterface"),
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """
+    Get all Active relationships that reference this interface.
+    Used before deletion to warn about which relationships will be deactivated.
+    """
+    try:
+        rdf_service = TwinRDFService()
+        deps = await rdf_service.get_dependencies(interface_name, tenant_id=tenant_id)
+        return {
+            "interface": interface_name,
+            "forward_count": deps["forward_count"],
+            "inverse_count": deps["inverse_count"],
+            "forward_targets": deps["forward_targets"],
+            "inverse_sources": deps["inverse_sources"],
+        }
+    except Exception as e:
+        logger.error(f"Error getting dependencies: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get dependencies: {str(e)}"
+        )
+
+
+@router.put(
+    "/rdf/interfaces/{interface_name}/relationships/{rel_name}/reactivate",
+    summary="Reactivate an Inactive relationship",
+)
+async def reactivate_relationship(
+    interface_name: str = Path(..., description="Name of the source TwinInterface"),
+    rel_name: str = Path(..., description="Name of the relationship to reactivate"),
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """
+    Reactivate an Inactive relationship if the target interface exists again.
+    """
+    try:
+        rdf_service = TwinRDFService()
+        graph_filter = rdf_service._build_tenant_graph_filter(tenant_id)
+
+        from app.core.twin_ontology import create_relationship_uri, TWIN
+
+        rel_uri = create_relationship_uri(interface_name, rel_name)
+        TS = TWIN
+
+        # Find target of this relationship
+        find_target_query = f"""
+        PREFIX ts: <{TS}>
+        SELECT ?targetUri WHERE {{
+            GRAPH ?graph {{
+                <{rel_uri}> ts:targetInterface ?targetUri .
+            }}
+            {graph_filter}
+        }}
+        """
+        results = await rdf_service._execute_query(find_target_query)
+        parsed = rdf_service._parse_sparql_results(results)
+
+        if not parsed:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Relationship '{rel_name}' not found on '{interface_name}'"
+            )
+
+        target_uri = parsed[0].get("targetUri", "")
+        target_name = target_uri.split("/")[-1] if target_uri else ""
+
+        # Check if target still exists
+        target_exists = await rdf_service.interface_exists(target_name, tenant_id=tenant_id)
+        if not target_exists:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Hedef thing '{target_name}' hala mevcut değil. Önce oluşturulmalıdır."
+            )
+
+        # Reactivate: Inactive → Active
+        reactivate_query = f"""
+        PREFIX ts: <{TS}>
+        DELETE {{ GRAPH ?g {{ <{rel_uri}> ts:relationshipStatus ts:Inactive }} }}
+        INSERT {{ GRAPH ?g {{ <{rel_uri}> ts:relationshipStatus ts:Active }} }}
+        WHERE {{
+            GRAPH ?g {{
+                <{rel_uri}> ts:relationshipStatus ts:Inactive .
+            }}
+            {graph_filter}
+        }}
+        """
+        await rdf_service._execute_update(reactivate_query)
+
+        return {
+            "message": f"Relationship '{rel_name}' reactivated successfully",
+            "interface": interface_name,
+            "relationship": rel_name,
+            "target": target_name,
+            "status": "Active",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reactivating relationship: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reactivate relationship: {str(e)}"
         )
 
 

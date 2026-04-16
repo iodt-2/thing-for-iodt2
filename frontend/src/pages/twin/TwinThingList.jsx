@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Plus, Search, Download, Trash2, Eye, Loader2 } from 'lucide-react'
 import TwinService from '@/services/twinService'
 import { useTranslation } from 'react-i18next'
+import useTenantStore from '@/store/useTenantStore'
 
 const TwinThingList = () => {
   const { t } = useTranslation()
@@ -14,8 +15,9 @@ const TwinThingList = () => {
   const [interfaces, setInterfaces] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchFilter, setSearchFilter] = useState('')
+  const currentTenant = useTenantStore((s) => s.currentTenant)
 
-  const loadInterfaces = async () => {
+  const loadInterfaces = useCallback(async () => {
     setIsLoading(true)
     try {
       const data = await TwinService.listInterfaces(
@@ -32,11 +34,12 @@ const TwinThingList = () => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [searchFilter, t, toast])
 
+  // Re-fetch whenever the active tenant changes
   useEffect(() => {
     loadInterfaces()
-  }, [])
+  }, [currentTenant])
 
   const handleSearch = () => {
     loadInterfaces()
@@ -148,7 +151,7 @@ const TwinThingList = () => {
                     )}
                     {iface.generatedAt && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {t('things.createdAt')}: {new Date(iface.generatedAt).toLocaleString()}
+                        {t('things.createdAt')}: {new Date(iface.generatedAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}
                       </p>
                     )}
                   </div>

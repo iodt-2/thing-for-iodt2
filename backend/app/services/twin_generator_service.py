@@ -57,8 +57,6 @@ except ImportError:
 class TwinGeneratorService:
     """Service for generating Twin YAML from WoT Thing Descriptions"""
 
-    NAMESPACE_PREFIX = "iodt2"
-
     def __init__(self):
         """Initialize the generator service"""
         pass
@@ -73,7 +71,8 @@ class TwinGeneratorService:
         include_service_spec: bool = True,
         thing_type: str = "device",
         domain_metadata: Optional[Dict[str, str]] = None,
-        dtdl_interface: Optional[Dict[str, Any]] = None
+        dtdl_interface: Optional[Dict[str, Any]] = None,
+        tenant_id: str = "default",
     ) -> str:
         """
         Generate TwinInterface YAML from WoT Thing Description
@@ -96,13 +95,14 @@ class TwinGeneratorService:
         if not thing_id:
             raise ValueError("Thing Description must have an @id or id field")
 
-        interface_name = self._normalize_name(thing_id)
+        interface_name = self._normalize_name(thing_id, tenant_id)
 
         # Build labels
         labels = {
             "generated-by": "iodt2-platform",
             "generated-at": datetime.utcnow().isoformat(),
-            "thing-type": thing_type,  # NEW: Add thing type
+            "tenant": tenant_id,
+            "thing-type": thing_type,
         }
 
         # Build annotations
@@ -163,7 +163,8 @@ class TwinGeneratorService:
     def generate_twin_instance_yaml(
         self,
         thing_description: Dict[str, Any],
-        interface_name: Optional[str] = None
+        interface_name: Optional[str] = None,
+        tenant_id: str = "default",
     ) -> str:
         """
         Generate TwinInstance YAML from WoT Thing Description
@@ -183,7 +184,7 @@ class TwinGeneratorService:
         if not thing_id:
             raise ValueError("Thing Description must have an @id or id field")
 
-        instance_name = self._normalize_name(thing_id)
+        instance_name = self._normalize_name(thing_id, tenant_id)
         if not interface_name:
             interface_name = instance_name
 
@@ -194,6 +195,7 @@ class TwinGeneratorService:
                 labels={
                     "generated-by": "iodt2-platform",
                     "generated-at": datetime.utcnow().isoformat(),
+                    "tenant": tenant_id,
                 },
                 annotations={
                     "source": "wot-thing-description",
@@ -310,13 +312,14 @@ class TwinGeneratorService:
     # Private Helper Methods
     # ========================================================================
 
-    def _normalize_name(self, thing_id: str) -> str:
+    def _normalize_name(self, thing_id: str, tenant_id: str = "default") -> str:
         """
-        Normalize thing ID to Twin naming convention
+        Normalize thing ID to Twin naming convention using tenant as prefix.
 
-        Examples:
-            urn:iodt2:sensor:temp-001 -> iodt2-temp-001
-            sensor-temp-001 -> iodt2-sensor-temp-001
+        Examples (tenant="default"):
+            urn:iodt2:sensor:temp-001 -> default-temp-001
+            sensor-temp-001           -> default-sensor-temp-001
+            default-gateway1          -> default-gateway1  (prefix already present)
         """
         # Remove URN prefix if present
         name = thing_id.split(":")[-1]
@@ -327,8 +330,11 @@ class TwinGeneratorService:
         # Remove consecutive dashes
         name = re.sub(r"-+", "-", name).strip("-")
 
-        # Add prefix
-        return f"{self.NAMESPACE_PREFIX}-{name}"
+        # Add prefix only if not already present
+        prefix = re.sub(r"[^a-z0-9-]", "-", tenant_id.lower()).strip("-") + "-"
+        if name.startswith(prefix):
+            return name
+        return f"{prefix}{name}"
 
     def _extract_properties(
         self,
@@ -378,6 +384,7 @@ class TwinGeneratorService:
                     name=rel,
                     interface=target_interface,
                     description=link.get("title"),
+                    relationship_type=link.get("relationship_type"),
                 )
                 relationships.append(relationship)
 
@@ -443,41 +450,45 @@ class TwinGeneratorService:
         )
 
     def _map_wot_type_to_twin(self, wot_type: str) -> str:
-        """Map WoT data type to Twin type"""
+        """Map WoT/form data type to Twin type"""
         type_mapping = {
             "number": "float",
+            "float": "float",       # form doğrudan "float" gönderebilir
+            "double": "float",
             "integer": "integer",
+            "int": "integer",
             "string": "string",
             "boolean": "boolean",
+            "bool": "boolean",
             "object": "object",
             "array": "array",
         }
         return type_mapping.get(wot_type.lower(), "string")
 
     def _extract_interface_from_href(self, href: str) -> Optional[str]:
-        """Extract interface name from link href"""
+        """Extract interface name from link href.
+
+        The href is an already-normalized interface name entered by the user
+        (e.g. 'default-gateway1'). Return it as-is after basic sanitization
+        so we never prepend an extra tenant prefix.
+        """
         if not href:
             return None
 
-        # Try to extract interface name from URN or path
-        # Example: urn:iodt2:interface:location -> iodt2-location
-        parts = href.split("/")[-1].split(":")
-        if parts:
-            return self._normalize_name(parts[-1])
-
-        return None
+        name = href.split("/")[-1].split(":")[-1]
+        name = re.sub(r"[^a-z0-9-]", "-", name.lower())
+        name = re.sub(r"-+", "-", name).strip("-")
+        return name if name else None
 
     def _extract_instance_from_href(self, href: str) -> Optional[str]:
-        """Extract instance name from link href"""
+        """Extract instance name from link href (same convention as interface)."""
         if not href:
             return None
 
-        # Similar to interface extraction
-        parts = href.split("/")[-1].split(":")
-        if parts:
-            return self._normalize_name(parts[-1])
-
-        return None
+        name = href.split("/")[-1].split(":")[-1]
+        name = re.sub(r"[^a-z0-9-]", "-", name.lower())
+        name = re.sub(r"-+", "-", name).strip("-")
+        return name if name else None
 
     def _to_yaml(self, data: Dict[str, Any]) -> str:
         """

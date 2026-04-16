@@ -46,3 +46,6 @@ Thumbs.db
 
 # Docs
 docs/
+.cursor/
+backend/data/debug/
+*Claude.md
