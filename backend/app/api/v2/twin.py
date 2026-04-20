@@ -107,8 +107,8 @@ class TwinCreateRequest(BaseModel):
     # Store options
     store_in_rdf: bool = True
 
-    # NEW: Thing Type (Phase 1)
-    thing_type: Literal["device", "sensor", "component"] = "device"
+    # Thing Type — Digital Twin hiyerarşisi
+    thing_type: Literal["atomic", "composite", "system"] = "atomic"
 
     # NEW: Domain Metadata (Phase 1)
     manufacturer: Optional[str] = None
@@ -791,6 +791,84 @@ async def reactivate_relationship(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reactivate relationship: {str(e)}"
+        )
+
+
+@router.get(
+    "/rdf/graph",
+    summary="Get tenant graph (nodes + edges for visualization)",
+)
+async def get_tenant_graph(
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """
+    Returns all TwinInterfaces as nodes and their relationships as edges
+    for the current tenant. Used by the Graph View visualization page.
+    """
+    try:
+        rdf_service = TwinRDFService()
+        graph_filter = rdf_service._build_tenant_graph_filter(tenant_id)
+        TS = rdf_service.TS
+
+        # Query all interfaces with metadata
+        nodes_query = f"""
+        PREFIX ts: <{TS}>
+        SELECT DISTINCT ?interface ?name ?description ?thingType ?graph
+        WHERE {{
+            GRAPH ?graph {{
+                ?interface a ts:TwinInterface .
+                FILTER NOT EXISTS {{ ?interface a ts:TwinInstance }}
+                ?interface ts:name ?name .
+                OPTIONAL {{ ?interface ts:description ?description }}
+                OPTIONAL {{ ?interface ts:thingType ?thingType }}
+            }}
+            {graph_filter}
+        }}
+        ORDER BY ?name
+        """
+
+        # Query all relationships between interfaces.
+        # targetInterface stores the full URI (e.g. http://iodt2.com/iodt2-test2).
+        # We extract the local name via REPLACE instead of a cross-graph join on ts:name.
+        edges_query = f"""
+        PREFIX ts: <{TS}>
+        SELECT DISTINCT ?sourceName ?targetName ?relName ?relType ?status
+        WHERE {{
+            GRAPH ?graph {{
+                ?interface a ts:TwinInterface .
+                FILTER NOT EXISTS {{ ?interface a ts:TwinInstance }}
+                ?interface ts:name ?sourceName .
+                ?interface ts:hasRelationship ?rel .
+                ?rel ts:relationshipName ?relName .
+                ?rel ts:targetInterface ?targetIface .
+                OPTIONAL {{ ?rel ts:relationshipType ?relTypeUri }}
+                OPTIONAL {{ ?rel ts:relationshipStatus ?statusUri }}
+                BIND(REPLACE(STR(?relTypeUri), ".*#", "") AS ?relType)
+                BIND(REPLACE(STR(?statusUri), ".*#", "") AS ?status)
+                BIND(REPLACE(STR(?targetIface), "^.*/", "") AS ?targetName)
+            }}
+            {graph_filter}
+        }}
+        """
+
+        nodes_raw = await rdf_service._execute_query(nodes_query)
+        edges_raw = await rdf_service._execute_query(edges_query)
+
+        nodes = rdf_service._parse_sparql_results(nodes_raw)
+        edges = rdf_service._parse_sparql_results(edges_raw)
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting tenant graph: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get tenant graph: {str(e)}"
         )
 
 

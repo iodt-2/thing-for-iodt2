@@ -4,7 +4,8 @@
     "createThing": "Create Thing",
     "search": "Search",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "graphView": "Graph View"
   },
   "navbar": {
     "appName": "IoDT2 Demo",
@@ -113,6 +114,18 @@
     "typeArray": "Array",
     "thingType": "Thing Modeling Type",
     "thingTypeDescription": "Select how this Thing will be modeled in the system",
+    "atomicTwinTitle": "Atomic Twin",
+    "atomicTwinDesc": "An indivisible twin representing a single physical entity.",
+    "atomicTwinExampleLabel": "Example:",
+    "atomicTwinExample": "Accelerometer, crack sensor, base station, street segment",
+    "compositeTwinTitle": "Composite Twin",
+    "compositeTwinDesc": "A physical structure containing multiple Atomic Twins.",
+    "compositeTwinExample": "Building (housing accelerometers, crack sensors), bridge",
+    "systemTwinTitle": "System Twin",
+    "systemTwinDesc": "A higher-level system formed by Composite and Atomic twins.",
+    "systemTwinExample": "Neighborhood, district, city infrastructure",
+    "grievesHierarchyLabel": "Grieves hierarchy:",
+    "grievesHierarchyDesc": "System Twin → Composite Twin → Atomic Twin. In an earthquake scenario: Neighborhood (System) → Building (Composite) → Accelerometer (Atomic).",
     "typeDevice": "Device (Multi-Sensor)",
     "typeDeviceDesc": "One Thing represents one physical device with multiple sensors/actuators",
     "typeSensor": "Single Sensor",

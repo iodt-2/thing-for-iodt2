@@ -3,6 +3,7 @@ import {
   List,
   Plus,
   Search,
+  Network,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -36,6 +37,11 @@ const Sidebar = () => {
       name: t('sidebar.search') || 'Search',
       path: "/things/search",
       icon: Search
+    },
+    {
+      name: t('sidebar.graphView') || 'Graph View',
+      path: "/things/graph",
+      icon: Network
     },
   ];
 

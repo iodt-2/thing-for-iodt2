@@ -473,7 +473,7 @@ const TwinThingDetails = () => {
                         {interfaceData.annotations['dtdl-category'] || 'Unknown Category'}
                       </Badge>
                       <Badge variant="outline">
-                        {interfaceData.labels?.['thing-type'] || 'device'}
+                        {interfaceData.labels?.['thing-type'] || 'atomic'}
                       </Badge>
                     </div>
                   </div>

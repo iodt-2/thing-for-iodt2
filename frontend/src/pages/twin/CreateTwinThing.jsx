@@ -53,7 +53,7 @@ const CreateTwinThing = () => {
     address: '', // Physical address
     altitude: null, // Altitude/elevation in meters
     // NEW: Thing Type
-    thing_type: 'device', // 'device', 'sensor', 'component'
+    thing_type: 'atomic', // 'atomic', 'composite', 'system'
     // NEW: Domain Metadata
     manufacturer: '',
     model: '',
@@ -309,44 +309,68 @@ spec:
 
     const summary = formData.dtdl_interface_summary
 
-    // Auto-fill properties with full schema details from DTDL
-    const dtdlProperties = summary.propertyDetails?.map((prop) => ({
-      name: prop.name,
-      type: prop.type || 'string',           // Use DTDL type
-      description: prop.description || '',   // Use DTDL description
-      writable: prop.writable ?? true,       // Use DTDL writable flag
-      unit: prop.unit || '',                 // Use DTDL unit
-      minimum: null,                         // Could extract from minValue property
-      maximum: null,                         // Could extract from maxValue property
-    })) || []
+    // Mevcut property ve command isimlerini set olarak tut — O(1) lookup
+    const existingPropNames = new Set(formData.properties.map((p) => p.name))
+    const existingCmdNames = new Set(formData.commands.map((c) => c.name))
 
-    // Auto-fill telemetry as properties (Twin treats them similarly)
-    const dtdlTelemetry = summary.telemetryDetails?.map((tel) => ({
-      name: tel.name,
-      type: tel.type || 'float',            // Telemetry is usually numeric
-      description: tel.description || '',   // Use DTDL description
-      writable: false,                       // Telemetry is read-only
-      unit: tel.unit || '',                  // Use DTDL unit
-      minimum: null,
-      maximum: null,
-      isTelemetry: true,                    // Mark as telemetry for validation
-    })) || []
+    // Sadece henüz eklenmemiş property'leri al
+    const newProperties = (summary.propertyDetails || [])
+      .filter((prop) => !existingPropNames.has(prop.name))
+      .map((prop) => ({
+        name: prop.name,
+        type: prop.type || 'string',
+        description: prop.description || '',
+        writable: prop.writable ?? true,
+        unit: prop.unit || '',
+        minimum: null,
+        maximum: null,
+      }))
 
-    // Auto-fill commands with descriptions
-    const dtdlCommands = summary.commandDetails?.map((cmd) => ({
-      name: cmd.name,
-      description: cmd.description || '',
-    })) || []
+    // Sadece henüz eklenmemiş telemetry'leri al
+    const newTelemetry = (summary.telemetryDetails || [])
+      .filter((tel) => !existingPropNames.has(tel.name))
+      .map((tel) => ({
+        name: tel.name,
+        type: tel.type || 'float',
+        description: tel.description || '',
+        writable: false,
+        unit: tel.unit || '',
+        minimum: null,
+        maximum: null,
+        isTelemetry: true,
+      }))
+
+    // Sadece henüz eklenmemiş command'leri al
+    const newCommands = (summary.commandDetails || [])
+      .filter((cmd) => !existingCmdNames.has(cmd.name))
+      .map((cmd) => ({
+        name: cmd.name,
+        description: cmd.description || '',
+      }))
+
+    const addedCount = newProperties.length + newTelemetry.length
+    const skippedCount =
+      (summary.propertyDetails?.length || 0) +
+      (summary.telemetryDetails?.length || 0) -
+      addedCount
+
+    if (addedCount === 0 && newCommands.length === 0) {
+      toast({
+        title: t('common.info') || 'Bilgi',
+        description: 'All DTDL fields have already been added.',
+      })
+      return
+    }
 
     setFormData({
       ...formData,
-      properties: [...formData.properties, ...dtdlProperties, ...dtdlTelemetry],
-      commands: [...formData.commands, ...dtdlCommands],
+      properties: [...formData.properties, ...newProperties, ...newTelemetry],
+      commands: [...formData.commands, ...newCommands],
     })
 
     toast({
       title: t('common.success'),
-      description: `Auto-filled ${dtdlProperties.length} properties, ${dtdlTelemetry.length} telemetry, ${dtdlCommands.length} commands from DTDL interface`,
+      description: `${addedCount} property, ${newCommands.length} command eklendi${skippedCount > 0 ? ` (${skippedCount} zaten vardı, atlandı)` : ''}.`,
     })
   }
 
@@ -489,67 +513,76 @@ spec:
         <CardContent>
           <RadioGroup
             value={formData.thing_type}
-            onValueChange={(value) => setFormData({ ...formData, thing_type: value })}
+            onValueChange={(value) => setFormData({
+              ...formData,
+              thing_type: value,
+              // Atomic dışı için device alanlarını temizle — bina/sistem'in manufacturer'ı olmaz
+              ...(value !== 'atomic' && {
+                manufacturer: '',
+                model: '',
+                serial_number: '',
+                firmware_version: '',
+              }),
+            })}
             className="grid grid-cols-3 gap-4"
           >
 
-             {/* Sensor Option */}
-             <div className="flex flex-col space-y-3 border rounded-lg p-4 hover:bg-accent transition-colors cursor-pointer h-full">
+            {/* Atomic Twin */}
+            <div className="flex flex-col space-y-3 border rounded-lg p-4 hover:bg-accent transition-colors cursor-pointer h-full">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="sensor" id="sensor" />
-                <Label htmlFor="sensor" className="cursor-pointer font-semibold text-base">
-                  🌡️ {t('createThing.typeSensor')}
+                <RadioGroupItem value="atomic" id="atomic" />
+                <Label htmlFor="atomic" className="cursor-pointer font-semibold text-base">
+                  ⚛️ {t('createThing.atomicTwinTitle')}
                 </Label>
               </div>
               <div className="text-sm text-muted-foreground space-y-1 flex-1">
-                <p>{t('createThing.typeSensorDesc')}</p>
+                <p>{t('createThing.atomicTwinDesc')}</p>
                 <p className="text-xs italic">
-                  <strong>Example:</strong> Single DHT22 temperature sensor
+                  <strong>{t('createThing.atomicTwinExampleLabel')}</strong> {t('createThing.atomicTwinExample')}
                 </p>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  <Badge variant="secondary" className="text-xs">DTDL: Simple Interface</Badge>
-                  <Badge variant="secondary" className="text-xs">Ditto: Single Feature</Badge>
+                  <Badge variant="secondary" className="text-xs">SSN: sosa:Sensor / Platform</Badge>
+                  <Badge variant="secondary" className="text-xs">Grieves: Atomic DT</Badge>
                 </div>
               </div>
             </div>
 
-            {/* Device Option */}
+            {/* Composite Twin */}
             <div className="flex flex-col space-y-3 border rounded-lg p-4 hover:bg-accent transition-colors cursor-pointer h-full">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="device" id="device" />
-                <Label htmlFor="device" className="cursor-pointer font-semibold text-base">
-                  📦 {t('createThing.typeDevice')}
+                <RadioGroupItem value="composite" id="composite" />
+                <Label htmlFor="composite" className="cursor-pointer font-semibold text-base">
+                  🏗️ {t('createThing.compositeTwinTitle')}
                 </Label>
               </div>
               <div className="text-sm text-muted-foreground space-y-1 flex-1">
-                <p>{t('createThing.typeDeviceDesc')}</p>
+                <p>{t('createThing.compositeTwinDesc')}</p>
                 <p className="text-xs italic">
-                  <strong>Example:</strong> Weather station with temperature, humidity, pressure sensors
+                  <strong>{t('createThing.atomicTwinExampleLabel')}</strong> {t('createThing.compositeTwinExample')}
                 </p>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  <Badge variant="secondary" className="text-xs">DTDL: Multiple Telemetry</Badge>
-                  <Badge variant="secondary" className="text-xs">Ditto: Multiple Features</Badge>
+                  <Badge variant="secondary" className="text-xs">SSN: sosa:Platform</Badge>
+                  <Badge variant="secondary" className="text-xs">Grieves: Composite DT</Badge>
                 </div>
               </div>
             </div>
 
-           
-            {/* Component Option */}
+            {/* System Twin */}
             <div className="flex flex-col space-y-3 border rounded-lg p-4 hover:bg-accent transition-colors cursor-pointer h-full">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="component" id="component" />
-                <Label htmlFor="component" className="cursor-pointer font-semibold text-base">
-                  🏗️ {t('createThing.typeComponent')}
+                <RadioGroupItem value="system" id="system" />
+                <Label htmlFor="system" className="cursor-pointer font-semibold text-base">
+                  🌐 {t('createThing.systemTwinTitle')}
                 </Label>
               </div>
               <div className="text-sm text-muted-foreground space-y-1 flex-1">
-                <p>{t('createThing.typeComponentDesc')}</p>
+                <p>{t('createThing.systemTwinDesc')}</p>
                 <p className="text-xs italic">
-                  <strong>Example:</strong> Building floor with multiple child sensors
+                  <strong>{t('createThing.atomicTwinExampleLabel')}</strong> {t('createThing.systemTwinExample')}
                 </p>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  <Badge variant="secondary" className="text-xs">DTDL: Components (Ideal!)</Badge>
-                  <Badge variant="secondary" className="text-xs">Uses Relationships</Badge>
+                  <Badge variant="secondary" className="text-xs">SSN: sosa:System</Badge>
+                  <Badge variant="secondary" className="text-xs">Grieves: System DT</Badge>
                 </div>
               </div>
             </div>
@@ -559,8 +592,7 @@ spec:
           <Alert className="mt-4">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              <strong>Tip:</strong> Choose "Device" for physical units with multiple sensors.
-              Choose "Component" for logical groupings using relationships.
+              <strong>{t('createThing.grievesHierarchyLabel')}</strong> {t('createThing.grievesHierarchyDesc')}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -722,53 +754,55 @@ spec:
               />
             </div>
 
-            {/* Domain Metadata Section */}
-            <div className="border-t pt-4 mt-4">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                {t('createThing.domainMetadata')}
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t('createThing.manufacturer')}</label>
-                  <Input
-                    placeholder={t('createThing.manufacturerPlaceholder')}
-                    value={formData.manufacturer}
-                    onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                  />
-                </div>
+            {/* Domain Metadata Section — yalnız Atomic Twin için anlamlı (fiziksel cihaz) */}
+            {formData.thing_type === 'atomic' && (
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  {t('createThing.domainMetadata')}
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('createThing.manufacturer')}</label>
+                    <Input
+                      placeholder={t('createThing.manufacturerPlaceholder')}
+                      value={formData.manufacturer}
+                      onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t('createThing.model')}</label>
-                  <Input
-                    placeholder={t('createThing.modelPlaceholder')}
-                    value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('createThing.model')}</label>
+                    <Input
+                      placeholder={t('createThing.modelPlaceholder')}
+                      value={formData.model}
+                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t('createThing.serialNumber')}</label>
-                  <Input
-                    placeholder={t('createThing.serialNumberPlaceholder')}
-                    value={formData.serial_number}
-                    onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">{t('createThing.serialNumber')}</label>
+                    <Input
+                      placeholder={t('createThing.serialNumberPlaceholder')}
+                      value={formData.serial_number}
+                      onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    {t('createThing.firmwareVersion')}
-                    <span className="text-muted-foreground ml-1">({t('common.optional')})</span>
-                  </label>
-                  <Input
-                    placeholder={t('createThing.firmwareVersionPlaceholder')}
-                    value={formData.firmware_version}
-                    onChange={(e) => setFormData({ ...formData, firmware_version: e.target.value })}
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      {t('createThing.firmwareVersion')}
+                      <span className="text-muted-foreground ml-1">({t('common.optional')})</span>
+                    </label>
+                    <Input
+                      placeholder={t('createThing.firmwareVersionPlaceholder')}
+                      value={formData.firmware_version}
+                      onChange={(e) => setFormData({ ...formData, firmware_version: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <Tabs defaultValue="properties">
               <TabsList className="w-full grid grid-cols-4">
@@ -805,16 +839,16 @@ spec:
                       onChange={(e) => updateProperty(index, 'name', e.target.value)}
                     />
                     <select
-                      className="w-full px-3 py-2 border rounded-md"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       value={prop.type}
                       onChange={(e) => updateProperty(index, 'type', e.target.value)}
                     >
-                      <option value="string">{t('createThing.typeString')}</option>
-                      <option value="integer">{t('createThing.typeInteger')}</option>
-                      <option value="float">{t('createThing.typeFloat')}</option>
-                      <option value="boolean">{t('createThing.typeBoolean')}</option>
-                      <option value="object">{t('createThing.typeObject')}</option>
-                      <option value="array">{t('createThing.typeArray')}</option>
+                      <option value="string" className="bg-background text-foreground">{t('createThing.typeString')}</option>
+                      <option value="integer" className="bg-background text-foreground">{t('createThing.typeInteger')}</option>
+                      <option value="float" className="bg-background text-foreground">{t('createThing.typeFloat')}</option>
+                      <option value="boolean" className="bg-background text-foreground">{t('createThing.typeBoolean')}</option>
+                      <option value="object" className="bg-background text-foreground">{t('createThing.typeObject')}</option>
+                      <option value="array" className="bg-background text-foreground">{t('createThing.typeArray')}</option>
                     </select>
                     <Input
                       placeholder={t('createThing.propertyDescription')}

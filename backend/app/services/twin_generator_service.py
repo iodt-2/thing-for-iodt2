@@ -69,7 +69,7 @@ class TwinGeneratorService:
         self,
         thing_description: Dict[str, Any],
         include_service_spec: bool = True,
-        thing_type: str = "device",
+        thing_type: str = "atomic",
         domain_metadata: Optional[Dict[str, str]] = None,
         dtdl_interface: Optional[Dict[str, Any]] = None,
         tenant_id: str = "default",
@@ -80,7 +80,7 @@ class TwinGeneratorService:
         Args:
             thing_description: W3C WoT Thing Description dict
             include_service_spec: Whether to include service/container spec
-            thing_type: Thing modeling type ('device', 'sensor', 'component')
+            thing_type: Digital Twin hierarchy type ('atomic', 'composite', 'system')
             domain_metadata: Domain metadata (manufacturer, model, serial_number, firmware_version)
             dtdl_interface: Optional DTDL interface metadata (dtmi, displayName, etc.)
 

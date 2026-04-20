@@ -4,7 +4,8 @@
     "createThing": "Thing Oluştur",
     "search": "Ara",
     "expand": "Genişlet",
-    "collapse": "Daralt"
+    "collapse": "Daralt",
+    "graphView": "Grafik Görünümü"
   },
   "navbar": {
     "appName": "IoDT2 Demo",
@@ -113,6 +114,18 @@
     "typeArray": "Dizi",
     "thingType": "Thing Modelleme Tipi",
     "thingTypeDescription": "Bu Thing'in sistemde nasıl modelleneceğini seçin",
+    "atomicTwinTitle": "Atomic Twin",
+    "atomicTwinDesc": "Bölünemez, tek bir fiziksel varlığı temsil eden ikiz.",
+    "atomicTwinExampleLabel": "Örnek:",
+    "atomicTwinExample": "İvmeölçer, çatlak sensörü, baz istasyonu, cadde segmenti",
+    "compositeTwinTitle": "Composite Twin",
+    "compositeTwinDesc": "Birden fazla Atomic Twin barındıran fiziksel yapı.",
+    "compositeTwinExample": "Bina (içinde ivmeölçer, çatlak sensörü), köprü",
+    "systemTwinTitle": "System Twin",
+    "systemTwinDesc": "Composite ve Atomic twin'lerin oluşturduğu üst-sistem.",
+    "systemTwinExample": "Mahalle, ilçe, şehir altyapısı",
+    "grievesHierarchyLabel": "Grieves hiyerarşisi:",
+    "grievesHierarchyDesc": "System Twin → Composite Twin → Atomic Twin. Deprem senaryosunda: Mahalle (System) → Bina (Composite) → İvmeölçer (Atomic).",
     "typeDevice": "Cihaz (Çoklu Sensör)",
     "typeDeviceDesc": "Bir Thing, birden fazla sensör/aktüatöre sahip fiziksel bir cihazı temsil eder",
     "typeSensor": "Tekil Sensör",

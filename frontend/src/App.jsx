@@ -6,6 +6,7 @@ import CreateTwinThing from '@/pages/twin/CreateTwinThing'
 import TwinThingList from '@/pages/twin/TwinThingList'
 import TwinThingDetails from '@/pages/twin/TwinThingDetails'
 import SearchThings from '@/pages/twin/SearchThings'
+import TwinGraphView from '@/pages/twin/TwinGraphView'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Route path="things" element={<TwinThingList />} />
             <Route path="things/create" element={<CreateTwinThing />} />
             <Route path="things/search" element={<SearchThings />} />
+            <Route path="things/graph" element={<TwinGraphView />} />
             <Route path="things/:interfaceName" element={<TwinThingDetails />} />
             
             {/* 404 */}

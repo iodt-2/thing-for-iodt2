@@ -227,6 +227,22 @@ const validateYaml = async (yamlContent, kind) => {
 };
 
 /**
+ * Get tenant graph data (nodes + edges) for visualization
+ * @returns {Promise<Object>} { nodes, edges, node_count, edge_count }
+ */
+const getTenantGraph = async () => {
+  try {
+    const response = await axiosInstance.get(
+      "/v2/twin/rdf/graph",
+      { headers: getTenantHeaders() }
+    );
+    return response.data;
+  } catch (error) {
+    handleError(error);
+  }
+};
+
+/**
  * Get location information (address + altitude) from coordinates
  * @param {number} latitude - Latitude coordinate
  * @param {number} longitude - Longitude coordinate
@@ -272,6 +288,9 @@ const TwinService = {
 
   // Validation
   validateYaml,
+
+  // Graph
+  getTenantGraph,
 
   // Location
   getLocationInfo,

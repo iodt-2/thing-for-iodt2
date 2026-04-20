@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Search, Download, Trash2, Eye, Loader2 } from 'lucide-react'
+import { Plus, Search, Download, Trash2, Eye, Loader2, Network } from 'lucide-react'
 import TwinService from '@/services/twinService'
 import { useTranslation } from 'react-i18next'
 import useTenantStore from '@/store/useTenantStore'
@@ -94,12 +94,20 @@ const TwinThingList = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">{t('things.title')}</h1>
-        <Link to="/things/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('things.create')}
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/things/graph">
+            <Button variant="outline">
+              <Network className="mr-2 h-4 w-4" />
+              Graph View
+            </Button>
+          </Link>
+          <Link to="/things/create">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('things.create')}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Search */}
