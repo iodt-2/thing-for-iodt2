@@ -1,0 +1,77 @@
+backend/data/seed/kadikoy_demo/sismik-sensor-z2/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-78
+backend/data/seed/kadikoy_demo/temp-sensor-street/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-63
+backend/data/seed/kadikoy_demo/moda-rezidans-a/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-86
+backend/data/seed/kadikoy_demo/sismik-sensor-z1/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-15
+backend/data/seed/kadikoy_demo/kadikoy-baz/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-94
+backend/data/seed/kadikoy_demo/kadikoy-hospital/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-95
+backend/app/services/seed_service.py
+  s_3425341ff21665::t_345545f501c6ba 1-88
+backend/data/seed/kadikoy_demo/sismik-sensor-z2/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-15
+backend/data/seed/kadikoy_demo/weather-station-1/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-71
+backend/data/seed/kadikoy_demo/bagdat-avenue/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-18
+backend/data/seed/kadikoy_demo/kadikoy-baz/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-21
+backend/data/seed/kadikoy_demo/moda-caddesi/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-78
+backend/data/seed/kadikoy_demo/moda-rezidans-a/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-21
+backend/data/seed/kadikoy_demo/seismic-sensor-1/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-106
+backend/data/seed/kadikoy_demo/temp-sensor-street/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-18
+backend/data/seed/kadikoy_demo/kadikoy-hospital/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-15
+backend/data/seed/kadikoy_demo/base-station-1/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-109
+backend/data/seed/kadikoy_demo/base-station-1/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-21
+backend/data/seed/kadikoy_demo/kadikoy-monitoring-system/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-71
+backend/data/seed/kadikoy_demo/pm25-sensor-1/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-24
+backend/data/seed/kadikoy_demo/pm25-sensor-1/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-79
+backend/data/seed/kadikoy_demo/kadikoy-monitoring-system/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-24
+backend/data/seed/kadikoy_demo/temp-sensor-hospital/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-64
+backend/data/seed/kadikoy_demo/sismik-sensor-z1/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-78
+backend/data/seed/kadikoy_demo/seismic-sensor-1/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-21
+backend/main.py
+  s_3425341ff21665::t_f6576c363679b5 95-99
+backend/data/seed/kadikoy_demo/moda-caddesi/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-15
+backend/data/seed/kadikoy_demo/bagdat-avenue/interface.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-92
+backend/data/seed/kadikoy_demo/temp-sensor-hospital/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-21
+backend/data/seed/kadikoy_demo/weather-station-1/instance.yaml
+  s_3425341ff21665::t_2a17d449aaa2e7 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "41eb9b17631a7d80c156612dae0791a583729ca9",
+  "prompts": {},
+  "sessions": {
+    "s_3425341ff21665": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8b741938-2a01-43ad-9a1a-69d831c46f97",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
