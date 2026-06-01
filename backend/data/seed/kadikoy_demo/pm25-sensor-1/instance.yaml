@@ -1,0 +1,24 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-pm25-sensor-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:23:59.296209'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: pm25-sensor-1
+spec:
+  name: iodt2-pm25-sensor-1
+  interface: iodt2-pm25-sensor-1
+  twinInstanceRelationships:
+  - name: located_near_temp
+    interface: iodt2-temp-sensor-street
+    instance: iodt2-temp-sensor-street
+  - name: feeds_basestation
+    interface: iodt2-base-station-1
+    instance: iodt2-base-station-1
+  - name: monitors_street_air
+    interface: iodt2-bagdat-avenue
+    instance: iodt2-bagdat-avenue

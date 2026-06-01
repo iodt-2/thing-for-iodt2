@@ -1,0 +1,21 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-kadikoy-baz
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:42:43.190759'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: kadikoy-baz
+spec:
+  name: iodt2-kadikoy-baz
+  interface: iodt2-kadikoy-baz
+  twinInstanceRelationships:
+  - name: monitors-bas-station-moda-rezidans-a
+    interface: iodt2-moda-rezidans-a
+    instance: iodt2-moda-rezidans-a
+  - name: feeds-bas-station-moda-caddesi
+    interface: iodt2-moda-caddesi
+    instance: iodt2-moda-caddesi

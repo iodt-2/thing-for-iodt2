@@ -1,0 +1,21 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-base-station-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:07:44.169382'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: base-station-1
+spec:
+  name: iodt2-base-station-1
+  interface: iodt2-base-station-1
+  twinInstanceRelationships:
+  - name: covers_weather
+    interface: iodt2-weather-station-1
+    instance: iodt2-weather-station-1
+  - name: coversStreet
+    interface: iodt2-bagdat-avenue
+    instance: iodt2-bagdat-avenue

@@ -1,0 +1,21 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-moda-rezidans-a
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:38:28.519217'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: moda-rezidans-a
+spec:
+  name: iodt2-moda-rezidans-a
+  interface: iodt2-moda-rezidans-a
+  twinInstanceRelationships:
+  - name: contains-rezidans-a-z1
+    interface: iodt2-sismik-sensor-z1
+    instance: iodt2-sismik-sensor-z1
+  - name: contains-rezidans-a-z2
+    interface: iodt2-sismik-sensor-z2
+    instance: iodt2-sismik-sensor-z2

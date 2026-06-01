@@ -1,0 +1,15 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-kadikoy-hospital
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T10:52:24.134356'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: kadikoy-hospital
+spec:
+  name: iodt2-kadikoy-hospital
+  interface: iodt2-kadikoy-hospital
+  twinInstanceRelationships: []

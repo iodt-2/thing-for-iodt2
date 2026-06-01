@@ -1,0 +1,21 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-temp-sensor-hospital
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:16:26.177994'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: temp-sensor-hospital
+spec:
+  name: iodt2-temp-sensor-hospital
+  interface: iodt2-temp-sensor-hospital
+  twinInstanceRelationships:
+  - name: monitors_hospital_temp
+    interface: iodt2-kadikoy-hospital
+    instance: iodt2-kadikoy-hospital
+  - name: feeds_seismic_context
+    interface: iodt2-seismic-sensor-1
+    instance: iodt2-seismic-sensor-1

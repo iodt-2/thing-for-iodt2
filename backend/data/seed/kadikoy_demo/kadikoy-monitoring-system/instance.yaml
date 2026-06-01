@@ -1,0 +1,24 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-kadikoy-monitoring-system
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:28:26.806582'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: kadikoy-monitoring-system
+spec:
+  name: iodt2-kadikoy-monitoring-system
+  interface: iodt2-kadikoy-monitoring-system
+  twinInstanceRelationships:
+  - name: contains_hospital
+    interface: iodt2-kadikoy-hospital
+    instance: iodt2-kadikoy-hospital
+  - name: contains_street
+    interface: iodt2-bagdat-avenue
+    instance: iodt2-bagdat-avenue
+  - name: contains_weather
+    interface: iodt2-weather-station-1
+    instance: iodt2-weather-station-1

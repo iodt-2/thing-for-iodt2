@@ -1,0 +1,64 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-temp-sensor-hospital
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:16:26.173519'
+    tenant: iodt2
+    thing-type: atomic
+  annotations:
+    source: wot-thing-description
+    original-id: temp-sensor-hospital
+    manufacturer: Sensirion
+    model: SHT31-D
+    serialNumber: SNS-HOSP-01
+    latitude: '40.9836'
+    longitude: '29.0303'
+    dtdl-interface: dtmi:iodt2:TemperatureSensor;1
+    dtdl-interface-name: Temperature Sensor
+    dtdl-category: environmental
+spec:
+  name: iodt2-temp-sensor-hospital
+  properties:
+  - name: temperatureUnit
+    type: string
+    description: celcius
+    x-writable: true
+    x-unit: ''
+  - name: alertThreshold
+    type: float
+    description: '35'
+    x-writable: true
+    x-minimum: -50.0
+    x-maximum: 100.0
+    x-unit: °C
+  - name: temperature
+    type: float
+    description: '22.5'
+    x-writable: false
+    x-minimum: -50.0
+    x-maximum: 100.0
+    x-unit: °C
+  relationships:
+  - name: monitors_hospital_temp
+    interface: iodt2-kadikoy-hospital
+    description: Monitors ambient temperature inside hospital
+    relationship_type: monitors
+  - name: feeds_seismic_context
+    interface: iodt2-seismic-sensor-1
+    description: Provides temperature context for seismic readings
+    relationship_type: feeds
+  commands: []
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

@@ -1,0 +1,15 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-moda-caddesi
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:39:44.856040'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: moda-caddesi
+spec:
+  name: iodt2-moda-caddesi
+  interface: iodt2-moda-caddesi
+  twinInstanceRelationships: []

@@ -309,6 +309,10 @@ spec:
 
     const summary = formData.dtdl_interface_summary
 
+    // DTDL tiplerini form'un desteklediği tiplere normalize et
+    const dtdlTypeMap = { double: 'float', long: 'integer', date: 'string', dateTime: 'string', duration: 'string', time: 'string' }
+    const normalizeType = (t, fallback) => dtdlTypeMap[t] || t || fallback
+
     // Mevcut property ve command isimlerini set olarak tut — O(1) lookup
     const existingPropNames = new Set(formData.properties.map((p) => p.name))
     const existingCmdNames = new Set(formData.commands.map((c) => c.name))
@@ -318,7 +322,7 @@ spec:
       .filter((prop) => !existingPropNames.has(prop.name))
       .map((prop) => ({
         name: prop.name,
-        type: prop.type || 'string',
+        type: normalizeType(prop.type, 'string'),
         description: prop.description || '',
         writable: prop.writable ?? true,
         unit: prop.unit || '',
@@ -331,7 +335,7 @@ spec:
       .filter((tel) => !existingPropNames.has(tel.name))
       .map((tel) => ({
         name: tel.name,
-        type: tel.type || 'float',
+        type: normalizeType(tel.type, 'float'),
         description: tel.description || '',
         writable: false,
         unit: tel.unit || '',
@@ -870,14 +874,14 @@ spec:
                       <Input
                         type="number"
                         placeholder="Min"
-                        value={prop.minimum || ''}
-                        onChange={(e) => updateProperty(index, 'minimum', e.target.value ? parseFloat(e.target.value) : null)}
+                        value={prop.minimum ?? ''}
+                        onChange={(e) => updateProperty(index, 'minimum', e.target.value === '' ? null : parseFloat(e.target.value))}
                       />
                       <Input
                         type="number"
                         placeholder="Max"
-                        value={prop.maximum || ''}
-                        onChange={(e) => updateProperty(index, 'maximum', e.target.value ? parseFloat(e.target.value) : null)}
+                        value={prop.maximum ?? ''}
+                        onChange={(e) => updateProperty(index, 'maximum', e.target.value === '' ? null : parseFloat(e.target.value))}
                       />
                       <Input
                         placeholder="Unit"
@@ -1052,8 +1056,8 @@ spec:
                         type="number"
                         step="any"
                         placeholder="e.g., 39.9334"
-                        value={formData.latitude || ''}
-                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value ? parseFloat(e.target.value) : null })}
+                        value={formData.latitude ?? ''}
+                        onChange={(e) => setFormData({ ...formData, latitude: e.target.value === '' ? null : parseFloat(e.target.value) })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1065,8 +1069,8 @@ spec:
                         type="number"
                         step="any"
                         placeholder="e.g., 32.8597"
-                        value={formData.longitude || ''}
-                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value ? parseFloat(e.target.value) : null })}
+                        value={formData.longitude ?? ''}
+                        onChange={(e) => setFormData({ ...formData, longitude: e.target.value === '' ? null : parseFloat(e.target.value) })}
                       />
                     </div>
                   </div>
@@ -1094,8 +1098,8 @@ spec:
                         type="number"
                         step="any"
                         placeholder={t('createThing.altitudePlaceholder')}
-                        value={formData.altitude || ''}
-                        onChange={(e) => setFormData({ ...formData, altitude: e.target.value ? parseFloat(e.target.value) : null })}
+                        value={formData.altitude ?? ''}
+                        onChange={(e) => setFormData({ ...formData, altitude: e.target.value === '' ? null : parseFloat(e.target.value) })}
                       />
                     </div>
                   </div>

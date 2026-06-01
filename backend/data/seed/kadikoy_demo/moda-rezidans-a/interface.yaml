@@ -1,0 +1,86 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-moda-rezidans-a
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:38:28.514684'
+    tenant: iodt2
+    thing-type: composite
+  annotations:
+    source: wot-thing-description
+    original-id: moda-rezidans-a
+    dtdl-interface: dtmi:iodt2:Building;1
+    dtdl-interface-name: Building
+    dtdl-category: seismic
+spec:
+  name: iodt2-moda-rezidans-a
+  properties:
+  - name: buildingType
+    type: string
+    description: Type of building structure
+    x-writable: false
+    x-unit: ''
+  - name: floors
+    type: string
+    description: '12'
+    x-writable: false
+    x-unit: ''
+  - name: constructionYear
+    type: string
+    description: '1998'
+    x-writable: false
+    x-unit: ''
+  - name: seismicRating
+    type: string
+    description: high
+    x-writable: true
+    x-unit: ''
+  - name: occupancy
+    type: integer
+    description: Estimated number of people in the building
+    x-writable: true
+    x-unit: ''
+  - name: vibrationLevel
+    type: float
+    description: Current vibration intensity detected
+    x-writable: false
+    x-unit: metrePerSecondSquared
+  - name: structuralHealth
+    type: float
+    description: Overall structural health score (0-100)
+    x-writable: false
+    x-unit: percent
+  - name: tiltAngle
+    type: float
+    description: Building tilt angle from vertical
+    x-writable: false
+    x-unit: degreeOfArc
+  relationships:
+  - name: contains-rezidans-a-z1
+    interface: iodt2-sismik-sensor-z1
+    description: ''
+    relationship_type: contains
+  - name: contains-rezidans-a-z2
+    interface: iodt2-sismik-sensor-z2
+    description: ''
+    relationship_type: contains
+  commands:
+  - name: evacuate
+    description: Trigger evacuation protocol for the building
+    schema: {}
+  - name: lockdown
+    description: Secure the building and prevent entry/exit
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

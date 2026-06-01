@@ -1,0 +1,15 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-weather-station-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:01:58.090453'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: weather-station-1
+spec:
+  name: iodt2-weather-station-1
+  interface: iodt2-weather-station-1
+  twinInstanceRelationships: []

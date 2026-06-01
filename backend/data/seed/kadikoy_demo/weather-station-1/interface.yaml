@@ -1,0 +1,71 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-weather-station-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:01:58.080112'
+    tenant: iodt2
+    thing-type: composite
+  annotations:
+    source: wot-thing-description
+    original-id: weather-station-1
+    latitude: '40.987987524791805'
+    longitude: '29.037157667741326'
+    address: Fenerium, 3, K-15 Söğütlüçeşme Kavşağı, Ziverbey, Zühtüpaşa Mahallesi,
+      Kadıköy, İstanbul, Marmara Bölgesi, 34724, Türkiye
+    altitude: '5.0'
+    dtdl-interface: dtmi:iodt2:WeatherStation;1
+    dtdl-interface-name: Weather Station
+    dtdl-category: environmental
+spec:
+  name: iodt2-weather-station-1
+  properties:
+  - name: pressure
+    type: float
+    description: '101325'
+    x-writable: false
+    x-minimum: 80000.0
+    x-maximum: 110000.0
+    x-unit: pascal
+  - name: windSpeed
+    type: float
+    description: '3.5'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 99.0
+    x-unit: m/s
+  - name: windDirection
+    type: integer
+    description: '180'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 360.0
+    x-unit: degree
+  - name: rainfall
+    type: float
+    description: '0'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 500.0
+    x-unit: mm
+  relationships: []
+  commands:
+  - name: startDataCollection
+    description: Begin continuous data collection from all sensors
+    schema: {}
+  - name: stopDataCollection
+    description: Stop data collection
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

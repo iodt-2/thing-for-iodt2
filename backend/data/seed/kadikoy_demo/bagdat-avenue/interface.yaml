@@ -1,0 +1,92 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-bagdat-avenue
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T10:55:50.111291'
+    tenant: iodt2
+    thing-type: composite
+  annotations:
+    source: wot-thing-description
+    original-id: bagdat-avenue
+    dtdl-interface: dtmi:iodt2:Street;1
+    dtdl-interface-name: Street
+    dtdl-category: seismic
+spec:
+  name: iodt2-bagdat-avenue
+  properties:
+  - name: streetName
+    type: string
+    description: Bagdat Caddesi
+    x-writable: false
+    x-unit: ''
+  - name: streetType
+    type: string
+    description: main_road
+    x-writable: false
+    x-unit: ''
+  - name: length
+    type: float
+    description: '14000'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 20000.0
+    x-unit: meter
+  - name: lanes
+    type: integer
+    description: '4'
+    x-writable: false
+    x-minimum: 1.0
+    x-maximum: 10.0
+    x-unit: count
+  - name: isEvacuationRoute
+    type: boolean
+    description: 'true'
+    x-writable: true
+    x-unit: ''
+  - name: surfaceDamage
+    type: float
+    description: '5.0'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: percent
+  - name: trafficFlow
+    type: float
+    description: '120'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 500.0
+    x-unit: count/min
+  - name: blockageLevel
+    type: float
+    description: '0'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: percent
+  relationships:
+  - name: dependsOn_hospital
+    interface: iodt2-kadikoy-hospital
+    description: Street safety depends on hospital monitoring
+    relationship_type: dependsOn
+  commands:
+  - name: closeStreet
+    description: Close the street to traffic
+    schema: {}
+  - name: redirectTraffic
+    description: Activate traffic redirection protocol
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

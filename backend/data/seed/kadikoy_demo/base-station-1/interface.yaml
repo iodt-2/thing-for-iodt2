@@ -1,0 +1,109 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-base-station-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:07:44.158813'
+    tenant: iodt2
+    thing-type: composite
+  annotations:
+    source: wot-thing-description
+    original-id: base-station-1
+    latitude: '40.972'
+    longitude: '29.068'
+    address: 32, Kuşdili Caddesi, Osmanağa Mahallesi, Kadıköy, İstanbul, Marmara Bölgesi,
+      34714, Türkiye
+    altitude: '10.0'
+    dtdl-interface: dtmi:iodt2:BaseStation;1
+    dtdl-interface-name: Base Station
+    dtdl-category: seismic
+spec:
+  name: iodt2-base-station-1
+  properties:
+  - name: stationId
+    type: string
+    description: BS-KDK-001
+    x-writable: false
+    x-unit: ''
+  - name: technology
+    type: string
+    description: 5g
+    x-writable: false
+    x-unit: ''
+  - name: coverageRadius
+    type: float
+    description: '1500'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 5000.0
+    x-unit: meter
+  - name: hasBackupPower
+    type: boolean
+    description: 'true'
+    x-writable: false
+    x-unit: ''
+  - name: priorityLevel
+    type: string
+    description: emergency
+    x-writable: true
+    x-unit: ''
+  - name: signalStrength
+    type: float
+    description: '-65'
+    x-writable: false
+    x-minimum: -120.0
+    x-maximum: 0.0
+    x-unit: decibel
+  - name: activeConnections
+    type: integer
+    description: '450'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 10000.0
+    x-unit: count
+  - name: powerLevel
+    type: float
+    description: '92'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: percent
+  - name: networkLoad
+    type: float
+    description: '38'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: percent
+  relationships:
+  - name: covers_weather
+    interface: iodt2-weather-station-1
+    description: Base station provides connectivity coverage to weather station
+    relationship_type: monitors
+  - name: coversStreet
+    interface: iodt2-bagdat-avenue
+    description: Base station coverage area includes Bağdat Avenue
+    relationship_type: monitors
+  commands:
+  - name: activateEmergencyMode
+    description: Switch to emergency communication mode
+    schema: {}
+  - name: boostSignal
+    description: Increase signal transmission power
+    schema: {}
+  - name: switchToBackupPower
+    description: Activate backup power supply
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

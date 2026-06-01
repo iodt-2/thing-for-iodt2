@@ -1,0 +1,95 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-kadikoy-hospital
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T10:52:24.123895'
+    tenant: iodt2
+    thing-type: composite
+  annotations:
+    source: wot-thing-description
+    original-id: kadikoy-hospital
+    latitude: '40.981846202493585'
+    longitude: '29.04141627053272'
+    address: Eczane Beyaz Köşk, 61, Bağdat Caddesi, Kızıltoprak, Feneryolu Mahallesi,
+      Kadıköy, İstanbul, Marmara Bölgesi, 34724, Türkiye
+    altitude: '11.0'
+    dtdl-interface: dtmi:iodt2:Building;1
+    dtdl-interface-name: Building
+    dtdl-category: seismic
+spec:
+  name: iodt2-kadikoy-hospital
+  properties:
+  - name: buildingType
+    type: string
+    description: hospital
+    x-writable: false
+    x-unit: ''
+  - name: floors
+    type: integer
+    description: '8'
+    x-writable: false
+    x-minimum: 1.0
+    x-maximum: 50.0
+    x-unit: ''
+  - name: constructionYear
+    type: integer
+    description: '1998'
+    x-writable: false
+    x-minimum: 1900.0
+    x-maximum: 2025.0
+    x-unit: ''
+  - name: seismicRating
+    type: string
+    description: high
+    x-writable: true
+    x-unit: ''
+  - name: occupancy
+    type: integer
+    description: '450'
+    x-writable: true
+    x-minimum: 0.0
+    x-maximum: 5000.0
+    x-unit: count
+  - name: vibrationLevel
+    type: float
+    description: '0.02'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 20.0
+    x-unit: m/s²
+  - name: structuralHealth
+    type: float
+    description: '94.5'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: percent
+  - name: tiltAngle
+    type: float
+    description: '0.3'
+    x-writable: false
+    x-minimum: -10.0
+    x-maximum: 10.0
+    x-unit: degree
+  relationships: []
+  commands:
+  - name: evacuate
+    description: Trigger evacuation protocol for the building
+    schema: {}
+  - name: lockdown
+    description: Secure the building and prevent entry/exit
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

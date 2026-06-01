@@ -1,0 +1,63 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-temp-sensor-street
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:19:49.890109'
+    tenant: iodt2
+    thing-type: atomic
+  annotations:
+    source: wot-thing-description
+    original-id: temp-sensor-street
+    manufacturer: Bosch
+    model: BME280
+    serialNumber: SNS-ST-02
+    latitude: '40.975'
+    longitude: '29.065'
+    address: Yalçın Eczanesi, 132, Bağdat Caddesi, Kalamış, Fenerbahçe Mahallesi,
+      Kadıköy, İstanbul, Marmara Bölgesi, 34726, Türkiye
+    altitude: '27.0'
+    dtdl-interface: dtmi:iodt2:TemperatureSensor;1
+    dtdl-interface-name: Temperature Sensor
+    dtdl-category: environmental
+spec:
+  name: iodt2-temp-sensor-street
+  properties:
+  - name: temperatureUnit
+    type: string
+    description: celcius
+    x-writable: true
+    x-unit: ''
+  - name: alertThreshold
+    type: float
+    description: '40'
+    x-writable: true
+    x-minimum: -30.0
+    x-maximum: 50.0
+    x-unit: °C
+  - name: temperature
+    type: float
+    description: '18.2'
+    x-writable: false
+    x-minimum: -30.0
+    x-maximum: 50.0
+    x-unit: °C
+  relationships:
+  - name: monitors_air_quality_around
+    interface: iodt2-bagdat-avenue
+    description: Monitors street-level air temperature around Bağdat Avenue
+    relationship_type: monitors
+  commands: []
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

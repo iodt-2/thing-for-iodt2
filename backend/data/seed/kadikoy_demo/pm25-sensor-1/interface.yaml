@@ -1,0 +1,79 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-pm25-sensor-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:23:59.290368'
+    tenant: iodt2
+    thing-type: atomic
+  annotations:
+    source: wot-thing-description
+    original-id: pm25-sensor-1
+    manufacturer: Plantower
+    model: PMS7003
+    serialNumber: PM-BGD-01
+    firmwareVersion: 1.4.0
+    latitude: '40.9755'
+    longitude: '29.0655'
+    address: Cavitpaşa sokağı, Çiftehavuzlar, Göztepe Mahallesi, Kadıköy, İstanbul,
+      Marmara Bölgesi, 34730, Türkiye
+    altitude: '43.0'
+    dtdl-interface: dtmi:iodt2:PM25Sensor;1
+    dtdl-interface-name: PM2.5 Sensor
+    dtdl-category: air_quality
+spec:
+  name: iodt2-pm25-sensor-1
+  properties:
+  - name: aqi
+    type: integer
+    description: '85'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 500.0
+    x-unit: ''
+  - name: aqiCategory
+    type: string
+    description: moderate
+    x-writable: false
+    x-unit: ''
+  - name: alertThreshold
+    type: float
+    description: '55'
+    x-writable: true
+    x-minimum: 0.0
+    x-maximum: 500.0
+    x-unit: µg/m³
+  - name: pm25
+    type: float
+    description: '28.5'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 1000.0
+    x-unit: µg/m³
+  relationships:
+  - name: located_near_temp
+    interface: iodt2-temp-sensor-street
+    description: Co-located with street temperature sensor; feeds combined readings
+    relationship_type: feeds
+  - name: feeds_basestation
+    interface: iodt2-base-station-1
+    description: Transmits air quality telemetry via base station
+    relationship_type: feeds
+  - name: monitors_street_air
+    interface: iodt2-bagdat-avenue
+    description: Monitors PM2.5 levels of Bağdat Avenue
+    relationship_type: monitors
+  commands: []
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

@@ -1,0 +1,15 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-sismik-sensor-z2
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:34:47.094434'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: sismik-sensor-z2
+spec:
+  name: iodt2-sismik-sensor-z2
+  interface: iodt2-sismik-sensor-z2
+  twinInstanceRelationships: []

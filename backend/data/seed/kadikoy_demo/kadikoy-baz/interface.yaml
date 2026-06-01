@@ -1,0 +1,94 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-kadikoy-baz
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:42:43.184428'
+    tenant: iodt2
+    thing-type: atomic
+  annotations:
+    source: wot-thing-description
+    original-id: kadikoy-baz
+    dtdl-interface: dtmi:iodt2:BaseStation;1
+    dtdl-interface-name: Base Station
+    dtdl-category: seismic
+spec:
+  name: iodt2-kadikoy-baz
+  properties:
+  - name: stationId
+    type: string
+    description: Unique identifier for the base station
+    x-writable: false
+    x-unit: ''
+  - name: technology
+    type: string
+    description: 5G
+    x-writable: false
+    x-unit: ''
+  - name: coverageRadius
+    type: float
+    description: Effective coverage radius in meters
+    x-writable: false
+    x-unit: ''
+  - name: hasBackupPower
+    type: boolean
+    description: 'true'
+    x-writable: false
+    x-unit: ''
+  - name: priorityLevel
+    type: string
+    description: emergency
+    x-writable: true
+    x-unit: ''
+  - name: signalStrength
+    type: float
+    description: Current signal strength
+    x-writable: false
+    x-unit: decibel
+  - name: activeConnections
+    type: integer
+    description: Number of active device connections
+    x-writable: false
+    x-unit: count
+  - name: powerLevel
+    type: float
+    description: Current power level percentage
+    x-writable: false
+    x-unit: percent
+  - name: networkLoad
+    type: float
+    description: Current network utilization percentage
+    x-writable: false
+    x-unit: percent
+  relationships:
+  - name: monitors-bas-station-moda-rezidans-a
+    interface: iodt2-moda-rezidans-a
+    description: ''
+    relationship_type: monitors
+  - name: feeds-bas-station-moda-caddesi
+    interface: iodt2-moda-caddesi
+    description: ''
+    relationship_type: feeds
+  commands:
+  - name: activateEmergencyMode
+    description: Switch to emergency communication mode
+    schema: {}
+  - name: boostSignal
+    description: Increase signal transmission power
+    schema: {}
+  - name: switchToBackupPower
+    description: Activate backup power supply
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

@@ -1,0 +1,106 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-seismic-sensor-1
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:12:41.719786'
+    tenant: iodt2
+    thing-type: atomic
+  annotations:
+    source: wot-thing-description
+    original-id: seismic-sensor-1
+    manufacturer: Kinemetrics
+    model: ETNA-2
+    serialNumber: KIN-2024-001
+    firmwareVersion: 3.2.1
+    latitude: '40.9836'
+    longitude: '29.0303'
+    dtdl-interface: dtmi:iodt2:SeismicSensor;1
+    dtdl-interface-name: Seismic Sensor
+    dtdl-category: seismic
+spec:
+  name: iodt2-seismic-sensor-1
+  properties:
+  - name: sensorType
+    type: string
+    description: acceloremeter
+    x-writable: false
+    x-unit: ''
+  - name: sensitivity
+    type: float
+    description: '80'
+    x-writable: true
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: ''
+  - name: accelerationX
+    type: float
+    description: '0.01'
+    x-writable: false
+    x-minimum: -20.0
+    x-maximum: 20.0
+    x-unit: m/s²
+  - name: accelerationY
+    type: float
+    description: '0.02'
+    x-writable: false
+    x-minimum: -20.0
+    x-maximum: 20.0
+    x-unit: m/s²
+  - name: accelerationZ
+    type: float
+    description: '9.81'
+    x-writable: false
+    x-minimum: -20.0
+    x-maximum: 20.0
+    x-unit: m/s²
+  - name: peakGroundAcceleration
+    type: float
+    description: '0.05'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 30.0
+    x-unit: m/s²
+  - name: magnitude
+    type: float
+    description: '0.8'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 10.0
+    x-unit: ''
+  - name: frequency
+    type: float
+    description: '5.2'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: hertz
+  relationships:
+  - name: monitors_hospital
+    interface: iodt2-kadikoy-hospital
+    description: Monitors seismic activity of the hospital structure
+    relationship_type: monitors
+  - name: feeds_weather
+    interface: iodt2-weather-station-1
+    description: Feeds seismic data to weather station aggregator
+    relationship_type: feeds
+  commands:
+  - name: calibrate
+    description: Perform sensor calibration
+    schema: {}
+  - name: triggerAlert
+    description: Manually trigger seismic alert
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

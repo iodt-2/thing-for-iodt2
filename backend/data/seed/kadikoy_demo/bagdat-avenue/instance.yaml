@@ -1,0 +1,18 @@
+apiVersion: dtd.twin/v0
+kind: TwinInstance
+metadata:
+  name: iodt2-bagdat-avenue
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T10:55:50.120305'
+    tenant: iodt2
+  annotations:
+    source: wot-thing-description
+    original-id: bagdat-avenue
+spec:
+  name: iodt2-bagdat-avenue
+  interface: iodt2-bagdat-avenue
+  twinInstanceRelationships:
+  - name: dependsOn_hospital
+    interface: iodt2-kadikoy-hospital
+    instance: iodt2-kadikoy-hospital

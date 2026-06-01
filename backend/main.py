@@ -92,6 +92,11 @@ async def lifespan(app: FastAPI):
     # Ensure Fuseki dataset exists
     await ensure_fuseki_dataset()
 
+    # Load demo scenario
+    from app.services.seed_service import load_demo_scenario
+    from app.services.twin_rdf_service import TwinRDFService
+    await load_demo_scenario(TwinRDFService())
+
     yield
 
     logger.info("Twin-Lite API Shutting down...")

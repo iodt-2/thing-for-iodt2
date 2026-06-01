@@ -1,0 +1,78 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-moda-caddesi
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-19T16:39:44.853110'
+    tenant: iodt2
+    thing-type: atomic
+  annotations:
+    source: wot-thing-description
+    original-id: moda-caddesi
+    dtdl-interface: dtmi:iodt2:Street;1
+    dtdl-interface-name: Street
+    dtdl-category: seismic
+spec:
+  name: iodt2-moda-caddesi
+  properties:
+  - name: streetName
+    type: string
+    description: Moda Caddesi
+    x-writable: false
+    x-unit: ''
+  - name: streetType
+    type: string
+    description: main road
+    x-writable: false
+    x-unit: ''
+  - name: length
+    type: float
+    description: Total length of the street segment
+    x-writable: false
+    x-unit: ''
+  - name: lanes
+    type: integer
+    description: Total number of traffic lanes
+    x-writable: false
+    x-unit: ''
+  - name: isEvacuationRoute
+    type: boolean
+    description: 'True'
+    x-writable: true
+    x-unit: ''
+  - name: surfaceDamage
+    type: float
+    description: Surface damage severity (0-100)
+    x-writable: false
+    x-unit: percent
+  - name: trafficFlow
+    type: float
+    description: Current traffic flow rate
+    x-writable: false
+    x-unit: countPerMinute
+  - name: blockageLevel
+    type: float
+    description: Street blockage level (0=clear, 100=fully blocked)
+    x-writable: false
+    x-unit: percent
+  relationships: []
+  commands:
+  - name: closeStreet
+    description: Close the street to traffic
+    schema: {}
+  - name: redirectTraffic
+    description: Activate traffic redirection protocol
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true

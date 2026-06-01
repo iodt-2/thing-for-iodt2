@@ -1,0 +1,71 @@
+apiVersion: dtd.twin/v0
+kind: TwinInterface
+metadata:
+  name: iodt2-kadikoy-monitoring-system
+  labels:
+    generated-by: iodt2-platform
+    generated-at: '2026-04-20T11:28:26.799959'
+    tenant: iodt2
+    thing-type: system
+  annotations:
+    source: wot-thing-description
+    original-id: kadikoy-monitoring-system
+    latitude: '40.98'
+    longitude: '29.05'
+spec:
+  name: iodt2-kadikoy-monitoring-system
+  properties:
+  - name: operationalStatus
+    type: string
+    description: operational
+    x-writable: false
+    x-unit: ''
+  - name: activeSubtwins
+    type: integer
+    description: '8'
+    x-writable: false
+    x-minimum: 0.0
+    x-maximum: 100.0
+    x-unit: count
+  - name: coverageArea
+    type: string
+    description: Kadıköy District
+    x-writable: false
+    x-unit: ''
+  - name: lastHealthCheck
+    type: string
+    description: '2026-04-20T10:30:00Z'
+    x-writable: false
+    x-unit: ''
+  relationships:
+  - name: contains_hospital
+    interface: iodt2-kadikoy-hospital
+    description: System encompasses hospital infrastructure
+    relationship_type: contains
+  - name: contains_street
+    interface: iodt2-bagdat-avenue
+    description: System covers main avenue
+    relationship_type: contains
+  - name: contains_weather
+    interface: iodt2-weather-station-1
+    description: Weather data node of the system
+    relationship_type: contains
+  commands:
+  - name: triggerEmergencyProtocol
+    description: Broadcast emergency to all sub-twins (evacuate + boost signal)
+    schema: {}
+  - name: runSystemDiagnostics
+    description: Poll health status from all contained twins
+    schema: {}
+  service:
+    image: iodt2/twin-service:latest
+    resources:
+      cpu: 500m
+      memory: 512Mi
+    autoscaling:
+      min: 1
+      max: 10
+  eventStore:
+    persistRealEvent: true
+  historicalStore:
+    persistRealEvent: true
