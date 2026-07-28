@@ -22,8 +22,13 @@ Properties:
 - hasInstanceRelationship: Links instance to another instance
 """
 
+import logging
+from decimal import Decimal, InvalidOperation
+
 from rdflib import Namespace, Graph, RDF, RDFS, XSD, OWL, Literal, URIRef
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -37,6 +42,46 @@ TS = TWIN  # Alias
 # Twin Data (instances)
 TWIN_DATA = Namespace("http://iodt2.com/")
 TSD = TWIN_DATA  # Alias
+
+# W3C Basic Geo (WGS84 lat/long) — https://www.w3.org/2003/01/geo/
+GEO = Namespace("http://www.w3.org/2003/01/geo/wgs84_pos#")
+
+# Alignment target vocabularies. The twin model is anchored to these so an
+# outside system can interpret it without knowing the ts: vocabulary at all.
+SOSA = Namespace("http://www.w3.org/ns/sosa/")     # W3C SSN/SOSA core
+SSN = Namespace("http://www.w3.org/ns/ssn/")       # W3C SSN
+QUDT = Namespace("http://qudt.org/schema/qudt/")   # Units and quantities
+SCHEMA = Namespace("https://schema.org/")          # Product metadata
+
+# The ontology resource itself (namespace URI without the trailing '#')
+ONTOLOGY_URI = URIRef("http://twin.dtd/ontology")
+ONTOLOGY_VERSION = "2.0.0"
+
+
+# ============================================================================
+# Relationship Type Vocabulary — single source of truth
+# ============================================================================
+# Defined once here and emitted into the ontology graph. Everything downstream
+# reads it back out of the graph: the Python inverse map, the REST endpoint and
+# the frontend. Adding a relationship type means editing this table only.
+#
+# ui_color is a deliberate UI hint carried in the model so every screen renders
+# a type the same way — before this, the graph view and the detail page used
+# two different and conflicting palettes.
+
+RELATIONSHIP_TYPES = (
+    # forward, inverse, propagation direction, ui colour, description
+    ("feeds", "isFedBy", "source-to-target", "#f59e0b",
+     "The source supplies data or material to the target"),
+    ("controls", "isControlledBy", "target-to-source", "#ef4444",
+     "The source commands or governs the target"),
+    ("contains", "isContainedIn", "bidirectional", "#8b5cf6",
+     "The source physically or logically contains the target"),
+    ("monitors", "isMonitoredBy", "source-to-target", "#10b981",
+     "The source observes the state of the target"),
+    ("dependsOn", "isDependedOnBy", "target-to-source", "#6366f1",
+     "The source requires the target in order to function"),
+)
 
 # Standard namespaces
 # RDF, RDFS, XSD are imported from rdflib
@@ -64,6 +109,25 @@ def get_twin_ontology() -> Graph:
     g.bind("rdf", RDF)
     g.bind("rdfs", RDFS)
     g.bind("xsd", XSD)
+    # replace=True: rdflib ships "geo" pre-bound to GeoSPARQL; we mean WGS84 Basic Geo
+    g.bind("geo", GEO, replace=True)
+    g.bind("sosa", SOSA)
+    g.bind("ssn", SSN)
+    g.bind("qudt", QUDT)
+    g.bind("schema", SCHEMA)
+
+    # ========================================================================
+    # Ontology header
+    # ========================================================================
+
+    g.add((ONTOLOGY_URI, RDF.type, OWL.Ontology))
+    g.add((ONTOLOGY_URI, RDFS.label, Literal("iodt2 Twin Ontology", lang="en")))
+    g.add((ONTOLOGY_URI, RDFS.comment, Literal(
+        "Vocabulary for describing digital twin interfaces and instances. "
+        "Aligned with W3C SSN/SOSA, QUDT, schema.org and W3C Basic Geo.", lang="en")))
+    g.add((ONTOLOGY_URI, OWL.versionInfo, Literal(ONTOLOGY_VERSION)))
+    for imported in (SOSA, SSN, GEO):
+        g.add((ONTOLOGY_URI, RDFS.seeAlso, URIRef(str(imported).rstrip("#/"))))
 
     # ========================================================================
     # Classes
@@ -204,32 +268,50 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.RelationshipType, RDF.type, RDFS.Class))
     g.add((TWIN.RelationshipType, RDFS.label, Literal("Relationship Type", lang="en")))
 
-    for fwd, inv in [
-        ("feeds", "isFedBy"),
-        ("controls", "isControlledBy"),
-        ("contains", "isContainedIn"),
-        ("monitors", "isMonitoredBy"),
-        ("dependsOn", "isDependedOnBy"),
-    ]:
-        g.add((TWIN[fwd], RDF.type, TWIN.RelationshipType))
-        g.add((TWIN[inv], RDF.type, TWIN.RelationshipType))
-        g.add((TWIN[fwd], OWL.inverseOf, TWIN[inv]))
-        g.add((TWIN[inv], OWL.inverseOf, TWIN[fwd]))
-
-    # Propagation metadata
+    # Metadata properties carried by every relationship type
     g.add((TWIN.propagationDirection, RDF.type, RDF.Property))
+    g.add((TWIN.propagationDirection, RDFS.domain, TWIN.RelationshipType))
     g.add((TWIN.onTargetDeleted, RDF.type, RDF.Property))
+    g.add((TWIN.onTargetDeleted, RDFS.domain, TWIN.RelationshipType))
     g.add((TWIN.Deactivate, RDF.type, TWIN.DeletionPolicy))
 
-    for rel_name, direction in [
-        ("feeds", "source-to-target"),
-        ("controls", "target-to-source"),
-        ("contains", "bidirectional"),
-        ("monitors", "source-to-target"),
-        ("dependsOn", "target-to-source"),
-    ]:
-        g.add((TWIN[rel_name], TWIN.propagationDirection, Literal(direction)))
-        g.add((TWIN[rel_name], TWIN.onTargetDeleted, TWIN.Deactivate))
+    g.add((TWIN.uiColor, RDF.type, RDF.Property))
+    g.add((TWIN.uiColor, RDFS.label, Literal("UI colour", lang="en")))
+    g.add((TWIN.uiColor, RDFS.comment, Literal(
+        "Hex colour a user interface should use for this term, so every screen "
+        "renders it consistently.", lang="en")))
+    g.add((TWIN.uiColor, RDFS.range, XSD.string))
+
+    g.add((TWIN.isDerived, RDF.type, RDF.Property))
+    g.add((TWIN.isDerived, RDFS.label, Literal("is derived", lang="en")))
+    g.add((TWIN.isDerived, RDFS.comment, Literal(
+        "True for inverse relationship types, which the platform generates "
+        "automatically rather than the user asserting them.", lang="en")))
+    g.add((TWIN.isDerived, RDFS.domain, TWIN.RelationshipType))
+    g.add((TWIN.isDerived, RDFS.range, XSD.boolean))
+
+    # Each type is used two ways at once, which OWL 2 punning permits:
+    #   - as an *individual* of ts:RelationshipType — this is what
+    #     ts:relationshipType points at on a reified relationship node
+    #   - as an *object property* — owl:inverseOf is only meaningful on a
+    #     property, so without this typing the inverse pairs below say nothing
+    for fwd, inv, direction, colour, comment in RELATIONSHIP_TYPES:
+        for name, derived in ((fwd, False), (inv, True)):
+            term = TWIN[name]
+            g.add((term, RDF.type, TWIN.RelationshipType))
+            g.add((term, RDF.type, OWL.ObjectProperty))
+            g.add((term, RDFS.label, Literal(name, lang="en")))
+            g.add((term, TWIN.uiColor, Literal(colour)))
+            g.add((term, TWIN.isDerived, Literal(derived, datatype=XSD.boolean)))
+            g.add((term, TWIN.propagationDirection, Literal(direction)))
+            g.add((term, TWIN.onTargetDeleted, TWIN.Deactivate))
+
+        g.add((TWIN[fwd], RDFS.comment, Literal(comment, lang="en")))
+        g.add((TWIN[inv], RDFS.comment,
+               Literal(f"Inverse of {fwd}: {comment[0].lower() + comment[1:]}", lang="en")))
+
+        g.add((TWIN[fwd], OWL.inverseOf, TWIN[inv]))
+        g.add((TWIN[inv], OWL.inverseOf, TWIN[fwd]))
 
     # ========================================================================
     # Relationship Status (reification pattern)
@@ -374,6 +456,78 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.dtdlCategory, RDFS.range, XSD.string))
 
     # ========================================================================
+    # Alignment — W3C SSN/SOSA, schema.org, QUDT
+    # ========================================================================
+    # A consumer that knows SSN/SOSA but not ts: must still be able to read the
+    # model. Every claim below is deliberately conservative: an alignment that
+    # would be wrong under reasoning is recorded as rdfs:seeAlso instead of
+    # asserted as subClassOf/subPropertyOf.
+
+    # Declare ts: classes as OWL classes too, so OWL tooling picks them up
+    for cls in (TWIN.TwinInterface, TWIN.TwinInstance, TWIN.Property,
+                TWIN.Relationship, TWIN.Command, TWIN.InstanceRelationship,
+                TWIN.RelationshipType, TWIN.RelationshipStatus):
+        g.add((cls, RDF.type, OWL.Class))
+
+    # TwinInterface / TwinInstance -> ssn:System
+    # Not sosa:Platform: a Platform is specifically a *host* for other entities,
+    # whereas a twin here may be a sensor, actuator, gateway or composite.
+    # ssn:System covers all of those.
+    g.add((TWIN.TwinInterface, RDFS.subClassOf, SSN.System))
+    g.add((TWIN.TwinInstance, RDFS.subClassOf, SSN.System))
+
+    # ts:Property -> ssn:Property
+    # Not sosa:ObservableProperty: ts:Property carries a ts:writable flag, so a
+    # property may be actuatable as well as observable. ssn:Property is the
+    # common superclass of sosa:ObservableProperty and sosa:ActuatableProperty.
+    g.add((TWIN.Property, RDFS.subClassOf, SSN.Property))
+    g.add((TWIN.hasProperty, RDFS.subPropertyOf, SSN.hasProperty))
+
+    # ts:Command -> sosa:Procedure
+    # Not sosa:Actuation: an Actuation is an event that occurred, while a
+    # ts:Command is the definition of an invocable operation — a Procedure.
+    g.add((TWIN.Command, RDFS.subClassOf, SOSA.Procedure))
+    g.add((TWIN.hasCommand, RDFS.subPropertyOf, SSN.implements))
+
+    # Human readable labels
+    g.add((TWIN.name, RDFS.subPropertyOf, RDFS.label))
+    g.add((TWIN.description, RDFS.subPropertyOf, RDFS.comment))
+
+    # Product metadata -> schema.org, only where the range genuinely matches
+    g.add((TWIN.model, RDFS.subPropertyOf, SCHEMA.model))
+    g.add((TWIN.serialNumber, RDFS.subPropertyOf, SCHEMA.serialNumber))
+    g.add((TWIN.firmwareVersion, RDFS.subPropertyOf, SCHEMA.softwareVersion))
+    # schema:manufacturer expects an Organization resource; ts:manufacturer holds
+    # the manufacturer name as text, so a subPropertyOf claim would be false.
+    g.add((TWIN.manufacturer, RDFS.seeAlso, SCHEMA.manufacturer))
+
+    # Units -> QUDT
+    # qudt:unit ranges over qudt:Unit resources, while ts:unit holds a unit
+    # *symbol* as text (e.g. "Cel"). Linked rather than declared a subproperty.
+    g.add((TWIN.unit, RDFS.seeAlso, QUDT.Unit))
+    g.add((TWIN.unit, RDFS.comment, Literal(
+        "Unit symbol of the property value as text (UCUM/QUDT symbol, e.g. 'Cel'). "
+        "Not a reference to a qudt:Unit resource.", lang="en")))
+
+    # ========================================================================
+    # Spatial / Location (W3C Basic Geo — WGS84)
+    # ========================================================================
+
+    # Twin'ler uzayda konumlanabilen varlıklardır. geo:lat/long/alt'ın
+    # rdfs:domain'i geo:SpatialThing olduğu için bu bağ olmadan konum
+    # triple'ları vokabüler açısından tutarsız kalır.
+    g.add((TWIN.TwinInterface, RDFS.subClassOf, GEO.SpatialThing))
+    g.add((TWIN.TwinInstance, RDFS.subClassOf, GEO.SpatialThing))
+
+    # address — Basic Geo'da karşılığı yok, ts: altında tanımlanır
+    g.add((TWIN.address, RDF.type, RDF.Property))
+    g.add((TWIN.address, RDFS.label, Literal("address", lang="en")))
+    g.add((TWIN.address, RDFS.comment,
+           Literal("Human readable postal or administrative address of the twin", lang="en")))
+    g.add((TWIN.address, RDFS.domain, GEO.SpatialThing))
+    g.add((TWIN.address, RDFS.range, XSD.string))
+
+    # ========================================================================
     # Properties - Relationship fix: targetInterface range is TwinInterface URI
     # ========================================================================
 
@@ -382,6 +536,79 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.targetInterface, RDFS.range, TWIN.TwinInterface))
 
     return g
+
+
+# ============================================================================
+# Ontology Access
+# ============================================================================
+
+# The ontology is built from code and never mutated at runtime, so one shared
+# instance serves every reader instead of rebuilding it per call.
+_ontology_cache: Optional[Graph] = None
+
+
+def get_cached_ontology() -> Graph:
+    """
+    Shared read-only ontology graph.
+
+    Use this for lookups. Use get_twin_ontology() when you need a private copy
+    (for example before serialising it somewhere that might modify it).
+    """
+    global _ontology_cache
+    if _ontology_cache is None:
+        _ontology_cache = get_twin_ontology()
+    return _ontology_cache
+
+
+def get_relationship_types(graph: Optional[Graph] = None) -> List[Dict[str, Any]]:
+    """
+    Read the relationship type vocabulary back out of the ontology.
+
+    This is the only supported way to enumerate relationship types. Nothing
+    downstream should keep its own list — adding a type to RELATIONSHIP_TYPES
+    must be enough to make it appear everywhere.
+
+    Returns:
+        List of dicts with: name, uri, label, description, inverse,
+        propagation_direction, on_target_deleted, ui_color, is_derived
+    """
+    g = graph if graph is not None else get_cached_ontology()
+
+    types: List[Dict[str, Any]] = []
+    for term in g.subjects(RDF.type, TWIN.RelationshipType):
+        name = str(term).split("#")[-1]
+        inverse = g.value(term, OWL.inverseOf)
+        deletion_policy = g.value(term, TWIN.onTargetDeleted)
+        is_derived = g.value(term, TWIN.isDerived)
+
+        types.append({
+            "name": name,
+            "uri": str(term),
+            "label": str(g.value(term, RDFS.label) or name),
+            "description": str(g.value(term, RDFS.comment) or ""),
+            "inverse": str(inverse).split("#")[-1] if inverse else None,
+            "propagation_direction": str(g.value(term, TWIN.propagationDirection) or ""),
+            "on_target_deleted": str(deletion_policy).split("#")[-1] if deletion_policy else None,
+            "ui_color": str(g.value(term, TWIN.uiColor) or ""),
+            "is_derived": bool(is_derived.toPython()) if is_derived is not None else False,
+        })
+
+    # Forward types first, then alphabetical — stable order for UI lists
+    return sorted(types, key=lambda t: (t["is_derived"], t["name"]))
+
+
+def get_inverse_type_map(graph: Optional[Graph] = None) -> Dict[str, str]:
+    """
+    Map every relationship type to its inverse, derived from owl:inverseOf.
+
+    Replaces the hand-written dictionary that used to live in
+    TwinRDFService and drift out of step with the ontology.
+    """
+    return {
+        entry["name"]: entry["inverse"]
+        for entry in get_relationship_types(graph)
+        if entry["inverse"]
+    }
 
 
 # ============================================================================
@@ -413,6 +640,70 @@ def create_command_uri(interface_name: str, command_name: str) -> URIRef:
     return URIRef(f"{TWIN_DATA}{interface_name}/command/{command_name}")
 
 
+# Location keys as they appear in YAML metadata.annotations, mapped to the
+# W3C Basic Geo predicate they become. Bounds are checked where meaningful.
+_LOCATION_PREDICATES = (
+    ("latitude", GEO.lat, 90),
+    ("longitude", GEO.long, 180),
+    ("altitude", GEO.alt, None),
+)
+
+
+def add_location_triples(
+    graph: Graph,
+    subject_uri: URIRef,
+    annotations: Optional[Dict[str, Any]],
+) -> bool:
+    """
+    Write W3C Basic Geo (WGS84) location triples for a twin subject.
+
+    Single source of truth for location→RDF mapping, shared by TwinRDFService
+    (what actually reaches Fuseki) and DebugDumpService (what gets written to
+    disk) so the two cannot drift apart.
+
+    Coordinates live in YAML annotations as strings. Invalid or out-of-range
+    values are skipped with a warning rather than failing the caller — one bad
+    coordinate must not cost the user the whole thing.
+
+    Args:
+        graph: Target RDF graph
+        subject_uri: TwinInterface or TwinInstance URI
+        annotations: metadata.annotations dict from the YAML
+
+    Returns:
+        bool: True if at least one location triple was added
+    """
+    if not annotations:
+        return False
+
+    added = False
+
+    for key, predicate, limit in _LOCATION_PREDICATES:
+        raw = annotations.get(key)
+        if raw is None or raw == "":
+            continue
+
+        try:
+            value = Decimal(str(raw))
+        except (InvalidOperation, ValueError):
+            logger.warning(f"Skipping invalid {key} for {subject_uri}: {raw!r}")
+            continue
+
+        if limit is not None and not (-limit <= value <= limit):
+            logger.warning(f"Skipping out-of-range {key} for {subject_uri}: {value}")
+            continue
+
+        graph.add((subject_uri, predicate, Literal(value, datatype=XSD.decimal)))
+        added = True
+
+    address = annotations.get("address")
+    if address:
+        graph.add((subject_uri, TWIN.address, Literal(address)))
+        added = True
+
+    return added
+
+
 # ============================================================================
 # Exports
 # ============================================================================
@@ -422,7 +713,19 @@ __all__ = [
     "TS",
     "TWIN_DATA",
     "TSD",
+    "GEO",
+    "SOSA",
+    "SSN",
+    "QUDT",
+    "SCHEMA",
+    "ONTOLOGY_URI",
+    "ONTOLOGY_VERSION",
+    "RELATIONSHIP_TYPES",
     "get_twin_ontology",
+    "get_cached_ontology",
+    "get_relationship_types",
+    "get_inverse_type_map",
+    "add_location_triples",
     "create_interface_uri",
     "create_instance_uri",
     "create_property_uri",

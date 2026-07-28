@@ -7,20 +7,11 @@ import { useToast } from '@/hooks/use-toast'
 import { ArrowLeft, Download, Trash2, Loader2, FileCode, RefreshCw, WifiOff, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import TwinService from '@/services/twinService'
+import useOntologyStore from '@/store/useOntologyStore'
 
-// Relationship tip renklerini döndürür
-const REL_TYPE_COLORS = {
-  feeds:      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  isFedBy:    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  controls:   'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  isControlledBy: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-  contains:   'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  isContainedIn: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  monitors:   'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  isMonitoredBy: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  dependsOn:  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  isDependedOnBy: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-}
+// Relationship colours come from the ontology (ts:uiColor) via useOntologyStore,
+// so this page and the graph view can no longer drift apart — they used to show
+// the same type in two different colours.
 
 const StatusBadge = ({ status }) => {
   if (status === 'Inactive') {
@@ -47,10 +38,17 @@ const StatusBadge = ({ status }) => {
 }
 
 const RelTypeBadge = ({ relType }) => {
+  const getTypeBadgeStyle = useOntologyStore((s) => s.getTypeBadgeStyle)
+  // Subscribe so the badge repaints once the vocabulary arrives
+  useOntologyStore((s) => s.relationshipTypes)
+
   if (!relType) return null
-  const colorClass = REL_TYPE_COLORS[relType] || 'bg-gray-100 text-gray-700'
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border"
+      style={getTypeBadgeStyle(relType)}
+    >
       {relType}
     </span>
   )
@@ -86,6 +84,12 @@ const TwinThingDetails = () => {
   useEffect(() => {
     loadDetails()
   }, [interfaceName])
+
+  // Relationship type colours come from the published ontology
+  const loadRelationshipTypes = useOntologyStore((s) => s.loadRelationshipTypes)
+  useEffect(() => {
+    loadRelationshipTypes()
+  }, [loadRelationshipTypes])
 
   const handleExport = async () => {
     try {

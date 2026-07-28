@@ -29,20 +29,14 @@ import { Cpu, Radio, Layers, RefreshCw, List, Info, X, Network, GitBranch, MoveH
 import TwinService from '@/services/twinService'
 import useTenantStore from '@/store/useTenantStore'
 import useSidebarStore from '@/store/useSidebarStore'
+import useOntologyStore from '@/store/useOntologyStore'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REL_COLORS = {
-  feeds:     '#f59e0b',
-  controls:  '#ef4444',
-  contains:  '#8b5cf6',
-  monitors:  '#10b981',
-  dependsOn: '#6366f1',
-}
-
-const INVERSE_TYPES = new Set([
-  'isFedBy', 'isControlledBy', 'isContainedIn', 'isMonitoredBy', 'isDependedOnBy',
-])
+// Relationship colours and the forward/inverse split come from the ontology via
+// useOntologyStore — see relTypeIndex() below. Nothing about the vocabulary is
+// declared in this file.
+const FALLBACK_EDGE_COLOR = '#94a3b8'
 
 const TYPE_META = {
   atomic:    { label: 'Atomic Twin',    Icon: Radio,  lightBg: '#ecfdf5', lightBorder: '#10b981', lightText: '#065f46', lightBadge: '#d1fae5', darkBg: '#064e3b', darkBorder: '#34d399', darkText: '#6ee7b7', darkBadge: '#065f46', hex: '#10b981' },
@@ -201,15 +195,43 @@ function computeLayout(rfNodes, rfEdges, direction = 'LR') {
   })
 }
 
+// ─── Relationship vocabulary index ─────────────────────────────────────────────
+/**
+ * Turn the ontology's relationship type list into the lookups this view needs.
+ * Everything here is derived — no type name appears literally in this file.
+ */
+function buildRelIndex(relationshipTypes) {
+  const colors  = new Map()
+  const inverse = new Set()
+  const flowing = new Set()   // data travels along the edge direction
+  const forward = []
+
+  relationshipTypes.forEach((rt) => {
+    colors.set(rt.name, rt.ui_color || FALLBACK_EDGE_COLOR)
+    if (rt.is_derived) {
+      inverse.add(rt.name)
+    } else {
+      forward.push(rt)
+      // Animate the edge when the propagation direction matches the arrow, so
+      // the animation means something instead of being a per-type hardcode
+      if (rt.propagation_direction === 'source-to-target') flowing.add(rt.name)
+    }
+  })
+
+  return { colors, inverse, flowing, forward }
+}
+
+const EMPTY_REL_INDEX = buildRelIndex([])
+
 // ─── Edge builder ──────────────────────────────────────────────────────────────
-function buildEdges(rawEdges, nodeIdSet, isDark) {
+function buildEdges(rawEdges, nodeIdSet, isDark, relIndex) {
   const seen = new Set()
   const out  = []
   rawEdges.forEach((e) => {
     const src = (e.sourceName || '').trim()
     const tgt = (e.targetName || '').trim()
     if (!src || !tgt) return
-    if (INVERSE_TYPES.has(e.relType)) return
+    if (relIndex.inverse.has(e.relType)) return
     // Güvenlik: edge hem source hem target node listesinde olmalı
     if (!nodeIdSet.has(src) || !nodeIdSet.has(tgt)) return
 
@@ -217,7 +239,7 @@ function buildEdges(rawEdges, nodeIdSet, isDark) {
     if (seen.has(key)) return
     seen.add(key)
 
-    const color    = REL_COLORS[e.relType] || '#94a3b8'
+    const color    = relIndex.colors.get(e.relType) || FALLBACK_EDGE_COLOR
     const inactive = e.status === 'Inactive'
 
     out.push({
@@ -226,9 +248,9 @@ function buildEdges(rawEdges, nodeIdSet, isDark) {
       target:   tgt,
       type:     'smoothstep',
       label:    e.relType || e.relName || '',
-      animated: !inactive && (e.relType === 'feeds' || e.relType === 'monitors'),
+      animated: !inactive && relIndex.flowing.has(e.relType),
       style: {
-        stroke:          inactive ? '#94a3b8' : color,
+        stroke:          inactive ? FALLBACK_EDGE_COLOR : color,
         strokeWidth:     2.5,
         strokeDasharray: inactive ? '6 3' : undefined,
       },
@@ -245,7 +267,7 @@ function buildEdges(rawEdges, nodeIdSet, isDark) {
       labelBgBorderRadius: 4,
       markerEnd: {
         type:   MarkerType.ArrowClosed,
-        color:  inactive ? '#94a3b8' : color,
+        color:  inactive ? FALLBACK_EDGE_COLOR : color,
         width:  18,
         height: 18,
       },
@@ -259,6 +281,9 @@ function FlowCanvas({ graphData, isDark, direction, onNodeSelect, C }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
   const [isInteractive, setIsInteractive] = useState(true)
+
+  const relationshipTypes = useOntologyStore((s) => s.relationshipTypes)
+  const relIndex = useMemo(() => buildRelIndex(relationshipTypes), [relationshipTypes])
 
   // Node ve edge'leri graphData'dan atomik olarak üret
   useEffect(() => {
@@ -280,12 +305,12 @@ function FlowCanvas({ graphData, isDark, direction, onNodeSelect, C }) {
       position: { x: 0, y: 0 },
     }))
     const nodeIdSet = new Set(rfNodes.map((n) => n.id))
-    const rfEdges   = buildEdges(graphData.edges || [], nodeIdSet, isDark)
+    const rfEdges   = buildEdges(graphData.edges || [], nodeIdSet, isDark, relIndex)
     const laidOut   = computeLayout(rfNodes, rfEdges, direction)
 
     setNodes(laidOut)
     setEdges(rfEdges)
-  }, [graphData, isDark, direction, setNodes, setEdges])
+  }, [graphData, isDark, direction, relIndex, setNodes, setEdges])
 
   const onNodeClick = useCallback((_e, node) => onNodeSelect(node.data), [onNodeSelect])
   const onPaneClick = useCallback(() => onNodeSelect(null), [onNodeSelect])
@@ -419,10 +444,10 @@ function FlowCanvas({ graphData, isDark, direction, onNodeSelect, C }) {
             </span>
           ))}
           <span style={{ width: 1, height: 14, background: C.border, display: 'inline-block' }} />
-          {Object.entries(REL_COLORS).map(([k, c]) => (
-            <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 18, height: 2.5, background: c, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ color: C.textPrimary }}>{k}</span>
+          {relIndex.forward.map((rt) => (
+            <span key={rt.name} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 18, height: 2.5, background: rt.ui_color, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ color: C.textPrimary }}>{rt.name}</span>
             </span>
           ))}
         </div>
@@ -438,6 +463,10 @@ export default function TwinGraphView() {
   const { toast }       = useToast()
   const currentTenant   = useTenantStore((s) => s.currentTenant)
   const { isCollapsed } = useSidebarStore()
+
+  const loadRelationshipTypes = useOntologyStore((s) => s.loadRelationshipTypes)
+  const relationshipTypes     = useOntologyStore((s) => s.relationshipTypes)
+  const relIndex = useMemo(() => buildRelIndex(relationshipTypes), [relationshipTypes])
 
   const isDark = useIsDark()
 
@@ -463,7 +492,7 @@ export default function TwinGraphView() {
     try {
       const data = await TwinService.getTenantGraph()
       const fwdEdges = (data.edges || []).filter(
-        (e) => !INVERSE_TYPES.has(e.relType) && e.sourceName && e.targetName
+        (e) => !relIndex.inverse.has(e.relType) && e.sourceName && e.targetName
       )
       setStats({ nodes: (data.nodes || []).length, edges: fwdEdges.length })
       setGraphData(data)
@@ -472,7 +501,10 @@ export default function TwinGraphView() {
     } finally {
       setIsLoading(false)
     }
-  }, [toast])
+  }, [toast, relIndex])
+
+  // Relationship vocabulary must be in place before edges are filtered by type
+  useEffect(() => { loadRelationshipTypes() }, [loadRelationshipTypes])
 
   useEffect(() => { loadGraph() }, [currentTenant, loadGraph])
 

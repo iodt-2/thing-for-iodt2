@@ -5,7 +5,7 @@ Simplified API with Twin, Tenant, and DTDL endpoints.
 """
 
 from fastapi import APIRouter
-from .v2 import twin, tenants, dtdl, fuseki
+from .v2 import twin, tenants, dtdl, fuseki, ontology
 
 # Create main API router
 api_router = APIRouter()
@@ -35,6 +35,12 @@ api_router.include_router(
     fuseki.router,
     prefix="/v2/fuseki",
     tags=["fuseki"]
+)
+
+# Include Ontology routes (published information model)
+api_router.include_router(
+    ontology.router,
+    prefix="/v2"
 )
 
 

@@ -24,9 +24,15 @@ settings = get_settings()
 
 
 async def ensure_fuseki_dataset():
-    """Check if Fuseki dataset exists, create it and load ontology if not."""
+    """
+    Ensure the Fuseki dataset exists and holds the current Twin ontology.
+
+    The ontology is PUT into its own named graph on every startup, so ontology
+    changes in code reach an already-existing dataset. PUT replaces that graph
+    only — thing data lives in http://twin.io/graphs/... and is never touched.
+    """
     import httpx
-    from app.core.twin_ontology import get_twin_ontology
+    from app.core.twin_ontology import get_twin_ontology, ONTOLOGY_URI, ONTOLOGY_VERSION
 
     dataset = settings.FUSEKI_DATASET
     fuseki_url = settings.FUSEKI_URL
@@ -36,36 +42,41 @@ async def ensure_fuseki_dataset():
         async with httpx.AsyncClient(timeout=10.0) as client:
             # Check if dataset exists
             resp = await client.get(f"{fuseki_url}/$/datasets", auth=auth)
+            exists = False
             if resp.status_code == 200:
                 existing = [ds.get("ds.name", "").strip("/") for ds in resp.json().get("datasets", [])]
-                if dataset in existing:
-                    logger.info(f"Fuseki dataset '{dataset}' already exists")
+                exists = dataset in existing
+
+            if exists:
+                logger.info(f"Fuseki dataset '{dataset}' already exists")
+            else:
+                logger.info(f"Creating Fuseki dataset '{dataset}'...")
+                resp = await client.post(
+                    f"{fuseki_url}/$/datasets",
+                    data={"dbName": dataset, "dbType": "tdb2"},
+                    auth=auth,
+                )
+                if resp.status_code not in [200, 201]:
+                    logger.error(f"Failed to create dataset: {resp.status_code} - {resp.text}")
                     return
+                logger.info(f"Fuseki dataset '{dataset}' created")
 
-            # Create dataset
-            logger.info(f"Creating Fuseki dataset '{dataset}'...")
-            resp = await client.post(
-                f"{fuseki_url}/$/datasets",
-                data={"dbName": dataset, "dbType": "tdb2"},
-                auth=auth,
-            )
-            if resp.status_code not in [200, 201]:
-                logger.error(f"Failed to create dataset: {resp.status_code} - {resp.text}")
-                return
-            logger.info(f"Fuseki dataset '{dataset}' created")
-
-            # Load ontology
-            logger.info("Loading Twin ontology into Fuseki...")
+            # Load/refresh ontology into its own named graph (idempotent)
+            logger.info(f"Loading Twin ontology v{ONTOLOGY_VERSION} into Fuseki...")
             ontology = get_twin_ontology()
             turtle_data = ontology.serialize(format="turtle")
-            resp = await client.post(
+            resp = await client.put(
                 f"{fuseki_url}/{dataset}/data",
+                params={"graph": str(ONTOLOGY_URI)},
                 content=turtle_data,
                 headers={"Content-Type": "text/turtle"},
                 auth=auth,
             )
             if resp.status_code in [200, 201, 204]:
-                logger.info(f"Twin ontology loaded ({len(ontology)} triples)")
+                logger.info(
+                    f"Twin ontology v{ONTOLOGY_VERSION} loaded "
+                    f"({len(ontology)} triples) into graph {ONTOLOGY_URI}"
+                )
             else:
                 logger.error(f"Failed to load ontology: {resp.status_code} - {resp.text}")
 

@@ -44,8 +44,10 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Docs
-docs/
+# Docs — local working notes stay out of the repo, but the İP2 work package
+# documents are Ar-Ge deliverables and must be versioned.
+docs/*
+!docs/ip2/
 .cursor/
 backend/data/debug/
 *Claude.md

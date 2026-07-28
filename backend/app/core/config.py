@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     FUSEKI_PASSWORD: str = Field(default="admin")
 
     # ============================================
+    # SPARQL GUARD
+    # ============================================
+    # Ceiling applied to user-supplied SELECT/CONSTRUCT/DESCRIBE queries so a
+    # missing LIMIT cannot pull the whole store into memory.
+    SPARQL_MAX_LIMIT: int = Field(default=1000)
+    # Wall clock budget for a single SPARQL request against Fuseki.
+    SPARQL_TIMEOUT_SECONDS: int = Field(default=30)
+
+    # ============================================
     # TENANT CONFIGURATION (Simplified)
     # ============================================
     DEFAULT_TENANT_ID: str = Field(default="default")

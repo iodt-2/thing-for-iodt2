@@ -13,15 +13,19 @@ from pydantic import BaseModel
 
 from app.services.twin_rdf_service import TwinRDFService as TwinRDFService
 from app.api.dependencies import get_tenant_id
+from app.core.config import get_settings
 from app.core.exceptions import FusekiException
+from app.core.sparql_guard import guard_query, SparqlGuardError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 # Known SPARQL prefixes for auto-injection
 _KNOWN_PREFIXES = {
     "ts:": 'PREFIX ts: <http://twin.dtd/ontology#>',
     "tsd:": 'PREFIX tsd: <http://iodt2.com/>',
+    "geo:": 'PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>',
     "rdf:": 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
     "rdfs:": 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>',
     "xsd:": 'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>',
@@ -45,18 +49,19 @@ def _ensure_prefixes(query: str) -> str:
     return query
 
 
-def _validate_select_query(query: str):
-    """Validate that query is a SELECT query (after stripping PREFIX lines)."""
-    # Strip PREFIX lines to find the actual query type
-    lines = query.strip().splitlines()
-    for line in lines:
-        stripped = line.strip().upper()
-        if not stripped or stripped.startswith("PREFIX"):
-            continue
-        if stripped.startswith("SELECT"):
-            return True
-        break
-    return False
+def _guard(query: str) -> str:
+    """
+    Run a user query through the shared SPARQL guard.
+
+    Returns the query to execute, or raises HTTP 400 with the reason.
+    """
+    try:
+        return guard_query(query, max_limit=settings.SPARQL_MAX_LIMIT)
+    except SparqlGuardError as guard_error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(guard_error),
+        )
 
 
 # ============================================================================
@@ -192,13 +197,7 @@ async def execute_sparql_search(
 ):
     """Execute a SPARQL query for search purposes."""
     try:
-        query = _ensure_prefixes(request.query)
-
-        if not _validate_select_query(query):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only SELECT queries are allowed"
-            )
+        query = _guard(_ensure_prefixes(request.query))
 
         rdf_service = TwinRDFService()
         results = await rdf_service._execute_query(query)
@@ -224,15 +223,9 @@ async def execute_sparql(
     request: SparqlQueryRequest,
     tenant_id: str = Depends(get_tenant_id),
 ):
-    """Execute a custom SPARQL SELECT query."""
+    """Execute a custom read-only SPARQL query."""
     try:
-        query = _ensure_prefixes(request.query)
-
-        if not _validate_select_query(query):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only SELECT queries are allowed"
-            )
+        query = _guard(_ensure_prefixes(request.query))
 
         rdf_service = TwinRDFService()
         results = await rdf_service._execute_query(query)

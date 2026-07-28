@@ -53,6 +53,19 @@ def _build_jsonld(
 
     ts = "http://twin.dtd/ontology#"
     tsd = "http://iodt2.com/"
+    geo = "http://www.w3.org/2003/01/geo/wgs84_pos#"
+    xsd_decimal = "http://www.w3.org/2001/XMLSchema#decimal"
+
+    def location_fields(annotations: Dict[str, Any]) -> Dict[str, Any]:
+        """Location annotations as JSON-LD fields (W3C Basic Geo + ts:address)."""
+        fields: Dict[str, Any] = {}
+        for ann_key, geo_prop in (("latitude", "lat"), ("longitude", "long"), ("altitude", "alt")):
+            val = annotations.get(ann_key)
+            if val not in (None, ""):
+                fields[f"{geo}{geo_prop}"] = [{"@value": str(val), "@type": xsd_decimal}]
+        if annotations.get("address"):
+            fields[f"{ts}address"] = [{"@value": annotations["address"]}]
+        return fields
 
     iface_uri = f"{tsd}{iface_name}"
     inst_uri = f"{tsd}instance/{inst_name}"
@@ -86,14 +99,12 @@ def _build_jsonld(
         ("dtdl-category", "dtdlCategory"),
         ("original-id", "originalId"),
         ("source", "sourceFormat"),
-        ("latitude", "latitude"),
-        ("longitude", "longitude"),
-        ("address", "address"),
-        ("altitude", "altitude"),
     ]:
         val = annotations.get(ann_key)
         if val:
             iface_node[f"{ts}{ts_key}"] = [{"@value": val}]
+
+    iface_node.update(location_fields(annotations))
 
     spec = iface.get("spec", {})
 
@@ -181,6 +192,8 @@ def _build_jsonld(
             {"@value": ilabels["generated-at"], "@type": "http://www.w3.org/2001/XMLSchema#dateTime"}
         ]
 
+    inst_node.update(location_fields(inst["metadata"].get("annotations", {})))
+
     irel_nodes = []
     for rel in inst.get("spec", {}).get("twinInstanceRelationships", []):
         target_uri = f"{tsd}instance/{rel.get('instance', '')}"
@@ -203,6 +216,7 @@ def _build_jsonld(
         "@context": {
             "ts": ts,
             "tsd": tsd,
+            "geo": geo,
             "xsd": "http://www.w3.org/2001/XMLSchema#",
             "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
             "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
@@ -221,9 +235,10 @@ def _build_rdf_turtle(
     TwinRDFService ile aynı mantığı kullanır; Fuseki bağlantısı gerektirmez.
     """
     from ..core.twin_ontology import (
-        TWIN, TWIN_DATA,
+        TWIN, TWIN_DATA, GEO,
         create_interface_uri, create_instance_uri,
         create_property_uri, create_relationship_uri, create_command_uri,
+        add_location_triples,
     )
 
     TS = TWIN
@@ -238,6 +253,8 @@ def _build_rdf_turtle(
     g.bind("rdf", RDF)
     g.bind("rdfs", RDFS)
     g.bind("xsd", XSD)
+    # replace=True: rdflib ships "geo" pre-bound to GeoSPARQL; we mean WGS84 Basic Geo
+    g.bind("geo", GEO, replace=True)
 
     iface_name = iface_data["metadata"]["name"]
     interface_uri = create_interface_uri(iface_name)
@@ -270,6 +287,9 @@ def _build_rdf_turtle(
         val = annotations.get(ann_key)
         if val:
             g.add((interface_uri, ts_prop, Literal(val)))
+
+    # Location — shared with TwinRDFService so the dump matches Fuseki content
+    add_location_triples(g, interface_uri, annotations)
 
     spec = iface_data.get("spec", {})
 
@@ -334,6 +354,8 @@ def _build_rdf_turtle(
     if ilabels.get("generated-at"):
         g.add((instance_uri, TS.generatedAt,
                Literal(ilabels["generated-at"], datatype=XSD.dateTime)))
+
+    add_location_triples(g, instance_uri, inst_data["metadata"].get("annotations"))
 
     for rel in inst_data.get("spec", {}).get("twinInstanceRelationships", []):
         rel_node = BNode()

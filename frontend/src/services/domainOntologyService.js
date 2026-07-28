@@ -93,45 +93,10 @@ export const DOMAIN_ONTOLOGIES = {
   },
 };
 
-// Relationship types for Thing links
-export const RELATIONSHIP_TYPES = {
-  containedIn: {
-    label: "Icinde Bulundugu",
-    labelEn: "Contained In",
-    icon: "Box",
-    color: "blue",
-  },
-  contains: {
-    label: "Icerdigi",
-    labelEn: "Contains",
-    icon: "FolderOpen",
-    color: "green",
-  },
-  controls: {
-    label: "Kontrol Ettigi",
-    labelEn: "Controls",
-    icon: "Gamepad2",
-    color: "orange",
-  },
-  controlledBy: {
-    label: "Kontrol Eden",
-    labelEn: "Controlled By",
-    icon: "Settings",
-    color: "purple",
-  },
-  monitors: {
-    label: "Izledigi",
-    labelEn: "Monitors",
-    icon: "Eye",
-    color: "cyan",
-  },
-  dependsOn: {
-    label: "Bagli Oldugu",
-    labelEn: "Depends On",
-    icon: "Link2",
-    color: "gray",
-  },
-};
+// NOTE: A conflicting relationship type vocabulary used to live here. It named
+// types differently from the ontology (containedIn vs isContainedIn) and gave
+// them a third, unrelated colour scheme. The vocabulary is published by the
+// backend now — use useOntologyStore / ontologyService instead.
 
 /**
  * Domain'e gore Thing type'larini dondur
@@ -192,33 +157,10 @@ export const listDomains = () => {
   }));
 };
 
-/**
- * Relationship type icin konfigurasyonu dondur
- * @param {string} rel - Relationship type (containedIn, controls, etc.)
- * @returns {Object|null} - Relationship konfigurasyonu
- */
-export const getRelationshipConfig = (rel) => {
-  return RELATIONSHIP_TYPES[rel] || null;
-};
-
-/**
- * Tum relationship type'lari listele
- * @returns {Array} - Relationship type listesi
- */
-export const listRelationshipTypes = () => {
-  return Object.entries(RELATIONSHIP_TYPES).map(([key, config]) => ({
-    value: key,
-    ...config,
-  }));
-};
-
 export default {
   DOMAIN_ONTOLOGIES,
-  RELATIONSHIP_TYPES,
   getDomainTypes,
   getDomainFromType,
   getDomainBadgeClasses,
   listDomains,
-  getRelationshipConfig,
-  listRelationshipTypes,
 };

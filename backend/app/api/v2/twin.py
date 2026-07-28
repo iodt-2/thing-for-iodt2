@@ -16,7 +16,11 @@ from app.services.location_service import LocationService
 from app.services.debug_dump_service import DebugDumpService
 from app.models.twin_models import ValidationResult
 from app.api.dependencies import get_tenant_id
+from app.core.config import get_settings
+from app.core.sparql_guard import guard_query, SparqlGuardError
 from pydantic import BaseModel
+
+settings = get_settings()
 
 
 router = APIRouter()
@@ -592,13 +596,14 @@ async def execute_sparql_query(
     request: TwinQueryRequest,
     tenant_id: str = Depends(get_tenant_id),
 ):
-    """Execute a custom SPARQL SELECT query."""
+    """Execute a custom read-only SPARQL query."""
     try:
         # Auto-inject missing prefixes
         query_text = request.query
         known_prefixes = {
             "ts:": 'PREFIX ts: <http://twin.dtd/ontology#>',
             "tsd:": 'PREFIX tsd: <http://iodt2.com/>',
+            "geo:": 'PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>',
             "rdf:": 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
             "rdfs:": 'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>',
             "xsd:": 'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>',
@@ -609,19 +614,13 @@ async def execute_sparql_query(
         if missing:
             query_text = "\n".join(missing) + "\n\n" + query_text
 
-        # Validate SELECT (skip PREFIX lines)
-        is_select = False
-        for line in query_text.strip().splitlines():
-            stripped = line.strip().upper()
-            if not stripped or stripped.startswith("PREFIX"):
-                continue
-            is_select = stripped.startswith("SELECT")
-            break
-
-        if not is_select:
+        # Reject anything that is not a read query and cap the result size
+        try:
+            query_text = guard_query(query_text, max_limit=settings.SPARQL_MAX_LIMIT)
+        except SparqlGuardError as guard_error:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Only SELECT queries are allowed"
+                detail=str(guard_error),
             )
 
         rdf_service = TwinRDFService()

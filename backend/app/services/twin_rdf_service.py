@@ -21,29 +21,20 @@ from rdflib.namespace import RDF, RDFS, XSD
 
 from ..core.config import get_settings
 from ..core import (
-    TWIN, TWIN_DATA,
+    TWIN, TWIN_DATA, GEO,
     create_interface_uri, create_instance_uri,
     create_property_uri, create_relationship_uri, create_command_uri,
-    get_twin_ontology
+    get_twin_ontology, add_location_triples, get_inverse_type_map
 )
 from ..core.exceptions import FusekiException
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Relationship type inverse map (SSN/SOSA pattern)
-INVERSE_TYPE_MAP = {
-    "feeds": "isFedBy",
-    "isFedBy": "feeds",
-    "controls": "isControlledBy",
-    "isControlledBy": "controls",
-    "contains": "isContainedIn",
-    "isContainedIn": "contains",
-    "monitors": "isMonitoredBy",
-    "isMonitoredBy": "monitors",
-    "dependsOn": "isDependedOnBy",
-    "isDependedOnBy": "dependsOn",
-}
+# Relationship type inverse map, derived from owl:inverseOf in the ontology.
+# Not hand-maintained: adding a type to RELATIONSHIP_TYPES in twin_ontology.py
+# is enough for it to show up here.
+INVERSE_TYPE_MAP = get_inverse_type_map()
 
 
 def get_inverse_type(rel_type: str) -> Optional[str]:
@@ -75,6 +66,7 @@ class TwinRDFService:
         # Namespaces
         self.TS = TWIN
         self.TSD = TWIN_DATA
+        self.GEO = GEO
 
         logger.info(f"TwinRDFService initialized with endpoint: {self.endpoint}")
 
@@ -116,6 +108,8 @@ class TwinRDFService:
             graph.bind("rdf", RDF)
             graph.bind("rdfs", RDFS)
             graph.bind("xsd", XSD)
+            # replace=True: rdflib ships "geo" pre-bound to GeoSPARQL; we mean WGS84 Basic Geo
+            graph.bind("geo", self.GEO, replace=True)
 
             # Add interface triples
             self._add_interface_to_graph(graph, interface_data, metadata)
@@ -1124,6 +1118,8 @@ class TwinRDFService:
                 graph.add((interface_uri, self.TS.dtdlInterfaceName, Literal(annotations["dtdl-interface-name"])))
             if "dtdl-category" in annotations:
                 graph.add((interface_uri, self.TS.dtdlCategory, Literal(annotations["dtdl-category"])))
+            # Location (W3C Basic Geo) — makes the twin geographically discoverable
+            add_location_triples(graph, interface_uri, annotations)
 
         spec = interface_data.get("spec", {})
 
@@ -1218,6 +1214,12 @@ class TwinRDFService:
                 graph.add((instance_uri, self.TS.generatedAt,
                           Literal(labels["generated-at"], datatype=XSD.dateTime)))
 
+        # Location (W3C Basic Geo) — the instance is the deployed twin, so its
+        # coordinates are what geographic discovery should match on
+        add_location_triples(
+            graph, instance_uri, instance_data["metadata"].get("annotations")
+        )
+
         # Instance relationships
         for rel in instance_data["spec"].get("twinInstanceRelationships", []):
             rel_node = BNode()
@@ -1297,10 +1299,19 @@ class TwinRDFService:
             logger.error(f"Failed to store named graph in Fuseki: {str(e)}")
             raise
 
-    async def _execute_query(self, query: str) -> Dict[str, Any]:
-        """Execute SPARQL SELECT query"""
+    async def _execute_query(self, query: str, timeout: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Execute a SPARQL read query.
+
+        Args:
+            query: SPARQL query text
+            timeout: Wall clock budget in seconds; falls back to
+                SPARQL_TIMEOUT_SECONDS so a runaway query cannot hold a
+                connection open indefinitely.
+        """
+        budget = aiohttp.ClientTimeout(total=timeout or settings.SPARQL_TIMEOUT_SECONDS)
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=budget) as session:
                 auth = aiohttp.BasicAuth(self.username, self.password)
                 headers = {"Accept": "application/sparql-results+json"}
 

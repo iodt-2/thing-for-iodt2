@@ -12,7 +12,7 @@ Usage:
 
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.services.dtdl_loader_service import get_dtdl_loader
 
@@ -111,7 +111,7 @@ class DTDLConverterService:
         yaml_lines.append(f"  name: {thing_name}-interface")
         yaml_lines.append("  labels:")
         yaml_lines.append("    generated-by: dtdl-converter")
-        yaml_lines.append(f"    generated-at: {datetime.utcnow().isoformat()}")
+        yaml_lines.append(f"    generated-at: {datetime.now(timezone.utc).isoformat()}")
         if tenant_id:
             yaml_lines.append(f"    tenant: {tenant_id}")
         yaml_lines.append("  annotations:")
@@ -202,7 +202,7 @@ class DTDLConverterService:
         yaml_lines.append(f"  name: {thing_name}-001")
         yaml_lines.append("  labels:")
         yaml_lines.append("    generated-by: dtdl-converter")
-        yaml_lines.append(f"    generated-at: {datetime.utcnow().isoformat()}")
+        yaml_lines.append(f"    generated-at: {datetime.now(timezone.utc).isoformat()}")
         if tenant_id:
             yaml_lines.append(f"    tenant: {tenant_id}")
         yaml_lines.append("  annotations:")

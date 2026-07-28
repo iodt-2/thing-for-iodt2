@@ -12,7 +12,7 @@ Usage:
 import re
 import yaml
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     # Relative import (when used as part of app)
@@ -100,7 +100,7 @@ class TwinGeneratorService:
         # Build labels
         labels = {
             "generated-by": "iodt2-platform",
-            "generated-at": datetime.utcnow().isoformat(),
+            "generated-at": datetime.now(timezone.utc).isoformat(),
             "tenant": tenant_id,
             "thing-type": thing_type,
         }
@@ -123,14 +123,7 @@ class TwinGeneratorService:
                 annotations["firmwareVersion"] = domain_metadata["firmware_version"]
 
         # Add location metadata to annotations if provided
-        if thing_description.get("latitude") is not None:
-            annotations["latitude"] = str(thing_description["latitude"])
-        if thing_description.get("longitude") is not None:
-            annotations["longitude"] = str(thing_description["longitude"])
-        if thing_description.get("address"):
-            annotations["address"] = thing_description["address"]
-        if thing_description.get("altitude") is not None:
-            annotations["altitude"] = str(thing_description["altitude"])
+        annotations.update(self._location_annotations(thing_description))
 
         # Add DTDL interface metadata if provided
         if dtdl_interface:
@@ -188,19 +181,24 @@ class TwinGeneratorService:
         if not interface_name:
             interface_name = instance_name
 
+        # The instance is the deployed twin, so it carries the location too —
+        # geographic discovery matches on instance coordinates
+        annotations = {
+            "source": "wot-thing-description",
+            "original-id": thing_id,
+        }
+        annotations.update(self._location_annotations(thing_description))
+
         # Build TwinInstance CR
         instance_cr = TwinInstanceCR(
             metadata=TwinMetadata(
                 name=instance_name,
                 labels={
                     "generated-by": "iodt2-platform",
-                    "generated-at": datetime.utcnow().isoformat(),
+                    "generated-at": datetime.now(timezone.utc).isoformat(),
                     "tenant": tenant_id,
                 },
-                annotations={
-                    "source": "wot-thing-description",
-                    "original-id": thing_id,
-                }
+                annotations=annotations
             ),
             spec=TwinInstanceSpec(
                 name=instance_name,
@@ -311,6 +309,27 @@ class TwinGeneratorService:
     # ========================================================================
     # Private Helper Methods
     # ========================================================================
+
+    def _location_annotations(self, thing_description: Dict[str, Any]) -> Dict[str, str]:
+        """
+        Extract location metadata as YAML annotations.
+
+        Shared by interface and instance generation so both carry the same
+        coordinates — TwinRDFService turns these into geo:lat/geo:long/geo:alt
+        triples.
+        """
+        annotations: Dict[str, str] = {}
+
+        if thing_description.get("latitude") is not None:
+            annotations["latitude"] = str(thing_description["latitude"])
+        if thing_description.get("longitude") is not None:
+            annotations["longitude"] = str(thing_description["longitude"])
+        if thing_description.get("altitude") is not None:
+            annotations["altitude"] = str(thing_description["altitude"])
+        if thing_description.get("address"):
+            annotations["address"] = thing_description["address"]
+
+        return annotations
 
     def _normalize_name(self, thing_id: str, tenant_id: str = "default") -> str:
         """

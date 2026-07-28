@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.config import get_settings
-from app.core.twin_ontology import get_twin_ontology
+from app.core.twin_ontology import get_twin_ontology, ONTOLOGY_URI
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -102,13 +102,15 @@ def load_ontology(dataset_name: str = None) -> bool:
         # Serialize to Turtle
         turtle_data = ontology.serialize(format="turtle")
 
-        # Upload to Fuseki
+        # Upload to Fuseki — PUT into the ontology's own named graph so repeated
+        # runs replace it instead of piling up duplicate triples
         data_url = f"{fuseki_url}/{dataset_name}/data"
         headers = {"Content-Type": "text/turtle"}
 
-        response = requests.post(
+        response = requests.put(
             data_url,
-            data=turtle_data,
+            params={"graph": str(ONTOLOGY_URI)},
+            data=turtle_data.encode("utf-8"),
             headers=headers,
             auth=auth
         )
