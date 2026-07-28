@@ -1,0 +1,133 @@
+backend/main.py
+  s_aad3adc72a0b14::t_3f7ae02ff833ef 27-33,35,45,48,50-62,64-65,68,70,76-79
+backend/app/services/dtdl_converter_service.py
+  s_aad3adc72a0b14::t_10983d97a9ebc3 15,114,205
+frontend/src/pages/twin/TwinGraphView.jsx
+  s_aad3adc72a0b14::t_c85642c4d290fb 234,242
+  s_aad3adc72a0b14::t_ee35133bb3caba 313
+  s_aad3adc72a0b14::t_3803aeece0c2cc 495
+  s_aad3adc72a0b14::t_c1a85d5b8c450e 32
+  s_aad3adc72a0b14::t_8e4693aba3e9d5 467-470
+  s_aad3adc72a0b14::t_94efc0bf7cc30e 270
+  s_aad3adc72a0b14::t_43b9cdd556c3d2 285-287
+.gitignore
+  s_aad3adc72a0b14::t_884940ea480b46 47-50
+backend/app/services/debug_dump_service.py
+  s_aad3adc72a0b14::t_bcdd284cb776fc 291-293
+  s_aad3adc72a0b14::t_3f77deffad8caf 358-359
+  s_aad3adc72a0b14::t_027bd5583ef3c3 107
+  s_aad3adc72a0b14::t_cee321f4e625a1 56-68
+  s_aad3adc72a0b14::t_b1caf6fee7af2f 195-196
+backend/app/api/v2/ontology.py
+  s_aad3adc72a0b14::t_d92eaf1459582e 21-22
+  s_aad3adc72a0b14::t_532bafb40293a3 289-343
+  s_aad3adc72a0b14::t_2f6d18c256da98 65-66
+  s_aad3adc72a0b14::t_6ee4f074b2ebcb 1-20,23-64,67-288
+docs/ip2/2026-07-discovery-services.md
+  s_aad3adc72a0b14::t_35eb9c31c66ca9 1-190
+backend/app/core/sparql_guard.py
+  s_aad3adc72a0b14::t_cb5f8fc34a7656 45,54-56,60,64,68-89,92-93
+  s_aad3adc72a0b14::t_7747ed63f89580 1-30,34-44,46-53,57-59,61-63,65-67,90-91,94-175
+  s_aad3adc72a0b14::t_3377dfdae51bb5 31-33
+docs/ip2/2026-06-acik-bilgi-modeli.md
+  s_aad3adc72a0b14::t_6f6b867d9f1d8e 419-430
+  s_aad3adc72a0b14::t_06c91649f12fcb 103-181
+  s_aad3adc72a0b14::t_212d0f0a895b4f 364,366-371,373-413
+  s_aad3adc72a0b14::t_d4e9dfe7a37c70 446-480
+  s_aad3adc72a0b14::t_39ae0dd6edc418 217,219-225,227-228,230-259
+  s_aad3adc72a0b14::t_3d453baef3baba 263-303
+  s_aad3adc72a0b14::t_f3228f52f71da7 1-4,6-66,68,75,79,81-84,100-102,182-184,214-216,218,226,229,260-262,304-306,308,316,320,361-363,365,372,414-418,431-445
+  s_aad3adc72a0b14::t_6564b64b37dde7 5
+  s_aad3adc72a0b14::t_ed58179d50b883 67,69-74,76-78,80,85-99
+  s_aad3adc72a0b14::t_b8f862563277fa 307,309-315,317-319,321-360
+  s_aad3adc72a0b14::t_177baa3bac9d53 185-213
+backend/tests/test_sparql_guard.py
+  s_aad3adc72a0b14::t_1e60c922523736 1-173
+frontend/src/pages/twin/TwinThingDetails.jsx
+  s_aad3adc72a0b14::t_9807cfa168b142 41-44,46,48-51
+  s_aad3adc72a0b14::t_649a63f1315081 12-14
+frontend/src/store/useOntologyStore.js
+  s_aad3adc72a0b14::t_0280ca57924ce7 1-96
+backend/app/core/__init__.py
+  s_aad3adc72a0b14::t_874030d658b67e 6-9
+  s_aad3adc72a0b14::t_08b299556e65c4 5
+backend/scripts/setup_twin_fuseki.py
+  s_aad3adc72a0b14::t_ffd08d22090d32 20
+backend/app/api/v2/twin.py
+  s_aad3adc72a0b14::t_a0c81ef471494e 19-20,23
+  s_aad3adc72a0b14::t_92d1fdae7f4233 599,606,617-620,623
+backend/tests/test_ontology_alignment.py
+  s_aad3adc72a0b14::t_e1c89876fc5e33 1-160
+frontend/src/pages/twin/CreateTwinThing.jsx
+  s_aad3adc72a0b14::t_db3a311fd67e36 34-39
+  s_aad3adc72a0b14::t_8e3f8ed2ad77d5 94-98
+  s_aad3adc72a0b14::t_6102a48ba631ac 19
+  s_aad3adc72a0b14::t_94d6c205f828ab 400
+  s_aad3adc72a0b14::t_6ae098558e77a5 940,947-965
+backend/app/core/twin_ontology.py
+  s_aad3adc72a0b14::t_f2da17c56a53ab 716
+  s_aad3adc72a0b14::t_2d505cd6ac0a25 46-48
+  s_aad3adc72a0b14::t_75f656e934a8e7 112-113
+  s_aad3adc72a0b14::t_bd609e47a8734a 643-706
+  s_aad3adc72a0b14::t_06a9989dce2212 25-27,30-31
+  s_aad3adc72a0b14::t_614374802ffc4c 29
+  s_aad3adc72a0b14::t_e26f7c01b73e1e 723,725-727
+  s_aad3adc72a0b14::t_82909866cfb660 513-529
+  s_aad3adc72a0b14::t_ae873a40916fad 728
+  s_aad3adc72a0b14::t_744121ef55a983 49-59
+  s_aad3adc72a0b14::t_974cfea101d371 459-512
+  s_aad3adc72a0b14::t_70cb11c160cde6 542-613
+  s_aad3adc72a0b14::t_bf5d88f1436ab9 293-297
+  s_aad3adc72a0b14::t_3f08343c4b26f7 717-722
+  s_aad3adc72a0b14::t_f596affb7f844b 114-130
+  s_aad3adc72a0b14::t_4224b21927e1b8 60-85
+backend/app/core/config.py
+  s_aad3adc72a0b14::t_f5bfab9cea4b75 45
+backend/app/api/__init__.py
+  s_aad3adc72a0b14::t_bc443ea4584bb8 8
+backend/tests/test_geo_triples.py
+  s_aad3adc72a0b14::t_56b46f00d9e69d 1-147
+backend/app/services/twin_generator_service.py
+  s_aad3adc72a0b14::t_10983d97a9ebc3 15,103,126,184-191,198,201,313-333
+backend/tests/conftest.py
+  s_aad3adc72a0b14::t_5684d132a13db8 1-23
+backend/app/api/v2/fuseki.py
+  s_aad3adc72a0b14::t_daa913bc965449 16,18,22,28
+  s_aad3adc72a0b14::t_5ed15ea37395ac 52-64
+  s_aad3adc72a0b14::t_214ea3a250f48c 200
+docs/ip2/README.md
+  s_aad3adc72a0b14::t_ccec1e03dee2e0 1-19,21-81
+  s_aad3adc72a0b14::t_d318c0a2f604b2 20
+docs/ip2/backlog.md
+  s_aad3adc72a0b14::t_9033e8ea5d6a5f 82-86
+  s_aad3adc72a0b14::t_3e1a09dd22fc27 71-77
+  s_aad3adc72a0b14::t_c60e248d6eb43e 78-81
+  s_aad3adc72a0b14::t_890a943b2e463e 1-70
+frontend/src/services/ontologyService.js
+  s_aad3adc72a0b14::t_5b0919db5efe30 1-76
+backend/app/services/twin_rdf_service.py
+  s_aad3adc72a0b14::t_ea823be51be2e2 1219
+  s_aad3adc72a0b14::t_4058b663ef5b3d 1217-1218,1220-1222
+  s_aad3adc72a0b14::t_95c0a0e24537cf 1302-1312,1314
+  s_aad3adc72a0b14::t_aebf1e3073a48d 27
+  s_aad3adc72a0b14::t_94ec139b95d085 111-112
+  s_aad3adc72a0b14::t_db81a5f93b73e4 24
+  s_aad3adc72a0b14::t_ef930d39054f91 34-37
+  s_aad3adc72a0b14::t_177cd4e049526f 69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "2a9b7d90d1e658ad0fa6536e7faa3f1acd80077a",
+  "prompts": {},
+  "sessions": {
+    "s_aad3adc72a0b14": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b23a9504-1874-4ee2-bb68-3ae993946476",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
