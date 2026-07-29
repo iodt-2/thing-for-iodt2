@@ -9,6 +9,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: sismik-sensor-z1
+    latitude: '40.9796'
+    longitude: '29.0266'
+    address: Moda Mahallesi, Kadıköy, İstanbul
+    altitude: '18.0'
 spec:
   name: iodt2-sismik-sensor-z1
   interface: iodt2-sismik-sensor-z1

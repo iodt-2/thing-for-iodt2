@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Tag, Filter, X, ChevronDown, Save, FileSearch, Clock, Code, Play, Download, Copy, CheckCheck, AlertCircle, Loader2, BookOpen, Network, Database, Layers, BarChart2, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Tag, Filter, X, MapPin, Radar, ChevronDown, Save, FileSearch, Clock, Code, Play, Download, Copy, CheckCheck, AlertCircle, Loader2, BookOpen, Network, Database, Layers, BarChart2, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import useFusekiStore from "@/store/useFusekiStore";
 import { searchByPropertyValue } from "@/services/hybridSearchService";
+import DiscoveryService from "@/services/discoveryService";
+import MapComponent from "@/components/map/MapComponent";
 import { useTranslation } from 'react-i18next';
 
 const SearchThings = () => {
@@ -78,6 +80,35 @@ LIMIT 100`);
   const [templateCategoryFilter, setTemplateCategoryFilter] = useState('all')
   const [expandedTemplate, setExpandedTemplate] = useState(null)
 
+  // ── Discovery state ─────────────────────────────────────────────────────────
+  // Proximity search
+  const [nearbyLat, setNearbyLat] = useState(40.9836)
+  const [nearbyLon, setNearbyLon] = useState(29.0303)
+  const [nearbyRadius, setNearbyRadius] = useState(1)
+
+  // Capability search
+  const [capProperty, setCapProperty] = useState('')
+  const [capUnit, setCapUnit] = useState('')
+  const [capThingType, setCapThingType] = useState('')
+  const [capabilities, setCapabilities] = useState(null)
+
+  // Saved queries come from the backend catalog; the array below stays as a
+  // fallback so the console keeps working if the endpoint is unavailable
+  const [catalogTemplates, setCatalogTemplates] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    DiscoveryService.getSavedQueries()
+      .then((data) => {
+        if (!cancelled && data?.queries?.length) setCatalogTemplates(data.queries)
+      })
+      .catch((err) => console.warn('Saved query catalog unavailable, using built-in templates:', err))
+    DiscoveryService.getCapabilities()
+      .then((data) => { if (!cancelled) setCapabilities(data) })
+      .catch((err) => console.warn('Capability inventory unavailable:', err))
+    return () => { cancelled = true }
+  }, [])
+
   const TEMPLATE_CATEGORIES = [
     { id: 'all',          label: 'All',           icon: Layers },
     { id: 'basic',        label: 'Basic',         icon: Search },
@@ -88,6 +119,8 @@ LIMIT 100`);
   ]
 
   // SPARQL templates — covering all ontology layers
+  // Built-in copy, kept only as a fallback — the catalog is served by
+  // GET /api/v2/discovery/queries so a new saved search needs no rebuild
   const sparqlTemplates = [
     // ── TEMEL ─────────────────────────────────────────────────────────────────
     {
@@ -543,6 +576,52 @@ ORDER BY ?g`,
   };
 
   // Handle value search
+  // Proximity discovery — needs the geo triples the ontology now carries
+  const handleNearbySearch = async () => {
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const results = await DiscoveryService.findNearby({
+        lat: Number(nearbyLat),
+        lon: Number(nearbyLon),
+        radiusKm: Number(nearbyRadius),
+        limit: 50,
+      });
+      setSearchResults(results);
+      setActiveTab('results');
+    } catch (err) {
+      setSearchError(err.message);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Capability discovery — criteria combine with AND
+  const handleCapabilitySearch = async () => {
+    if (!capProperty && !capUnit && !capThingType) {
+      setSearchError(t('search.capabilityNeedsCriterion'));
+      return;
+    }
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const results = await DiscoveryService.findByCapability({
+        property: capProperty,
+        unit: capUnit,
+        thingType: capThingType,
+        limit: 50,
+      });
+      setSearchResults(results);
+      setActiveTab('results');
+    } catch (err) {
+      setSearchError(err.message);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleValueSearch = async () => {
     try {
       setIsSearching(true);
@@ -629,6 +708,9 @@ ORDER BY ?g`,
   };
 
 
+  // Catalog when reachable, built-in list otherwise
+  const activeTemplates = catalogTemplates ?? sparqlTemplates
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -645,6 +727,8 @@ ORDER BY ?g`,
             <SelectContent>
               <SelectItem value="standard">{t('search.standardSearch')}</SelectItem>
               <SelectItem value="value">{t('search.valueSearch')}</SelectItem>
+              <SelectItem value="nearby">{t('search.nearbySearch')}</SelectItem>
+              <SelectItem value="capability">{t('search.capabilitySearch')}</SelectItem>
               <SelectItem value="sparql">{t('search.sparqlSearch')}</SelectItem>
             </SelectContent>
           </Select>
@@ -909,6 +993,142 @@ ORDER BY ?g`,
             </div>
           </CardContent>
         </Card>
+      ) : searchMode === "nearby" ? (
+        /* Proximity discovery */
+        <Card className="border shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center">
+              <Radar className="mr-2 h-5 w-5" />
+              {t('search.nearbySearch')}
+            </CardTitle>
+            <CardDescription>{t('search.nearbySearchDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nearby-lat">{t('search.latitude')}</Label>
+                  <Input id="nearby-lat" type="number" step="0.0001" value={nearbyLat}
+                         onChange={(e) => setNearbyLat(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nearby-lon">{t('search.longitude')}</Label>
+                  <Input id="nearby-lon" type="number" step="0.0001" value={nearbyLon}
+                         onChange={(e) => setNearbyLon(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nearby-radius">
+                    {t('search.radiusKm')}: <span className="font-mono">{nearbyRadius} km</span>
+                  </Label>
+                  <Input id="nearby-radius" type="range" min="0.1" max="50" step="0.1"
+                         value={nearbyRadius}
+                         onChange={(e) => setNearbyRadius(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="h-72 rounded-md overflow-hidden border">
+                <MapComponent
+                  center={{ lat: Number(nearbyLat), lng: Number(nearbyLon) }}
+                  zoom={13}
+                  sensors={[{
+                    id: 'search-center',
+                    name: t('search.searchCentre'),
+                    latitude: Number(nearbyLat),
+                    longitude: Number(nearbyLon),
+                    type: 'secondary',
+                    status: 'online',
+                  }]}
+                  onMapClick={(event) => {
+                    const { lngLat } = event || {};
+                    if (lngLat) {
+                      setNearbyLat(Number(lngLat.lat.toFixed(6)));
+                      setNearbyLon(Number(lngLat.lng.toFixed(6)));
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{t('search.mapPickHint')}</p>
+
+              <Button onClick={handleNearbySearch} disabled={isSearching} className="w-full">
+                {isSearching
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('search.searching')}</>
+                  : <><MapPin className="mr-2 h-4 w-4" />{t('search.search')}</>}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : searchMode === "capability" ? (
+        /* Capability discovery */
+        <Card className="border shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center">
+              <Tag className="mr-2 h-5 w-5" />
+              {t('search.capabilitySearch')}
+            </CardTitle>
+            <CardDescription>{t('search.capabilitySearchDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('search.property')}</Label>
+                  <Select value={capProperty || '__any__'}
+                          onValueChange={(v) => setCapProperty(v === '__any__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder={t('search.anyProperty')} /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__any__">{t('search.anyProperty')}</SelectItem>
+                      {(capabilities?.properties || []).map((prop) => (
+                        <SelectItem key={prop.name} value={prop.name}>
+                          {prop.name} <span className="text-muted-foreground">({prop.count})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('search.unit')}</Label>
+                  <Select value={capUnit || '__any__'}
+                          onValueChange={(v) => setCapUnit(v === '__any__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder={t('search.anyUnit')} /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__any__">{t('search.anyUnit')}</SelectItem>
+                      {(capabilities?.units || []).map((unit) => (
+                        <SelectItem key={unit.symbol} value={unit.symbol}>
+                          {unit.symbol} <span className="text-muted-foreground">({unit.count})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('search.thingType')}</Label>
+                  <Select value={capThingType || '__any__'}
+                          onValueChange={(v) => setCapThingType(v === '__any__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder={t('search.anyThingType')} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__any__">{t('search.anyThingType')}</SelectItem>
+                      {(capabilities?.thingTypes || []).map((type) => (
+                        <SelectItem key={type.name} value={type.name}>
+                          {type.name} <span className="text-muted-foreground">({type.count})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {!capabilities && (
+                <p className="text-xs text-muted-foreground">{t('search.capabilitiesLoading')}</p>
+              )}
+
+              <Button onClick={handleCapabilitySearch} disabled={isSearching} className="w-full">
+                {isSearching
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('search.searching')}</>
+                  : <><Search className="mr-2 h-4 w-4" />{t('search.search')}</>}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : searchMode === "value" ? (
         /* Value Search Mode */
         <Card className="border shadow-sm">
@@ -1112,8 +1332,8 @@ ORDER BY ?g`,
                 {TEMPLATE_CATEGORIES.map(cat => {
                   const Icon = cat.icon
                   const count = cat.id === 'all'
-                    ? sparqlTemplates.length
-                    : sparqlTemplates.filter(t => t.category === cat.id).length
+                    ? activeTemplates.length
+                    : activeTemplates.filter(t => t.category === cat.id).length
                   return (
                     <button
                       key={cat.id}
@@ -1137,7 +1357,7 @@ ORDER BY ?g`,
               {/* Template grid */}
               <div className="flex-1 overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-3">
-                  {sparqlTemplates
+                  {activeTemplates
                     .filter(t => templateCategoryFilter === 'all' || t.category === templateCategoryFilter)
                     .map(template => {
                       const isExpanded = expandedTemplate === template.id

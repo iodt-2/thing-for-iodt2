@@ -7,7 +7,9 @@ Idempotent — skips things that already have a named graph.
 
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
+
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +44,23 @@ def _read_pair(thing_slug: str) -> Tuple[str, str]:
     )
 
 
-async def load_demo_scenario(rdf_service) -> None:
+async def load_demo_scenario(rdf_service, force: Optional[bool] = None) -> None:
     """
     Called from lifespan after Fuseki dataset is ready.
-    Skips any thing whose named graph already exists.
+
+    Skips any thing whose named graph already exists, so restarts are cheap.
+    That also means edits to the seed YAML never reach an environment that was
+    populated by an earlier version — set SEED_FORCE_RELOAD (or pass force) to
+    re-store them. Storing replaces the named graph, so no duplicates appear.
     """
+    if force is None:
+        force = get_settings().SEED_FORCE_RELOAD
+
     loaded = 0
     skipped = 0
+
+    if force:
+        logger.info("[Seed] force reload requested — existing graphs will be replaced")
 
     for slug in _LOAD_ORDER:
         thing_id = f"iodt2-{slug}"
@@ -56,7 +68,7 @@ async def load_demo_scenario(rdf_service) -> None:
 
         try:
             exists = await _graph_exists(rdf_service, graph_uri)
-            if exists:
+            if exists and not force:
                 logger.debug(f"[Seed] skip {thing_id} — graph exists")
                 skipped += 1
                 continue

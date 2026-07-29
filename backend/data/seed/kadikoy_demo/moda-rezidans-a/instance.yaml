@@ -9,6 +9,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: moda-rezidans-a
+    latitude: '40.9795'
+    longitude: '29.0265'
+    address: Moda Mahallesi, Kadıköy, İstanbul
+    altitude: '18.0'
 spec:
   name: iodt2-moda-rezidans-a
   interface: iodt2-moda-rezidans-a

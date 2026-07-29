@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     FUSEKI_USERNAME: str = Field(default="admin")
     FUSEKI_PASSWORD: str = Field(default="admin")
 
+    # Use the Jena text (Lucene) index for full text search. Off by default:
+    # it requires the dataset to be configured with a text:TextDataset
+    # assembler and an index build for existing data. When on, a failing text
+    # query falls back to the substring scan rather than returning nothing.
+    FUSEKI_TEXT_INDEX: bool = Field(default=False)
+
     # ============================================
     # SPARQL GUARD
     # ============================================
@@ -50,6 +56,15 @@ class Settings(BaseSettings):
     SPARQL_MAX_LIMIT: int = Field(default=1000)
     # Wall clock budget for a single SPARQL request against Fuseki.
     SPARQL_TIMEOUT_SECONDS: int = Field(default=30)
+
+    # ============================================
+    # DEMO SEED
+    # ============================================
+    # Re-store the demo scenario even when its named graphs already exist.
+    # Without this, editing a seed YAML has no effect on an environment whose
+    # Fuseki volume was populated by an earlier version — the loader skips
+    # anything already present.
+    SEED_FORCE_RELOAD: bool = Field(default=False)
 
     # ============================================
     # TENANT CONFIGURATION (Simplified)

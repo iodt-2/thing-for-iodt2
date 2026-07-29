@@ -225,7 +225,22 @@
     "noSavedSearches": "Henüz kayıtlı arama yok",
     "saveFrequentSearches": "Sık kullandığınız aramaları kaydedin",
     "sampleAllDevices": "Tüm Cihazlar",
-    "sampleSensors": "Sensörler"
+    "sampleSensors": "Sensörler",
+    "nearbySearch": "Yakındakiler",
+    "nearbySearchDesc": "Bir noktanın çevresindeki twin'leri en yakından başlayarak listeler. Konumu kayıtlı olmayan twin'ler sonuçlarda çıkmaz.",
+    "capabilitySearch": "Yeteneğe Göre",
+    "capabilitySearchDesc": "Twin'leri ölçtükleri büyüklüğe, birime ve türe göre bulur. Seçenekler sistemde gerçekten bulunan değerlerden gelir.",
+    "latitude": "Enlem",
+    "longitude": "Boylam",
+    "radiusKm": "Yarıçap",
+    "searchCentre": "Arama merkezi",
+    "mapPickHint": "Merkezi değiştirmek için harita üzerinde bir noktaya tıklayabilirsiniz.",
+    "unit": "Birim",
+    "anyProperty": "Tüm büyüklükler",
+    "anyUnit": "Tüm birimler",
+    "anyThingType": "Tüm türler",
+    "capabilitiesLoading": "Yetenek envanteri yükleniyor…",
+    "capabilityNeedsCriterion": "En az bir ölçüt seçin: büyüklük, birim veya tür."
   },
   "footer": {
     "copyright": "© 2024 IODT2. Tüm hakları saklıdır.",

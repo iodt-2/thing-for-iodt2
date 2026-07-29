@@ -10,6 +10,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: kadikoy-baz
+    latitude: '40.9880'
+    longitude: '29.0300'
+    address: Rasimpaşa Mahallesi, Kadıköy, İstanbul
+    altitude: '24.0'
     dtdl-interface: dtmi:iodt2:BaseStation;1
     dtdl-interface-name: Base Station
     dtdl-category: seismic

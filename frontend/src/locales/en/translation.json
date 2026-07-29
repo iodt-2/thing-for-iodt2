@@ -225,7 +225,22 @@
     "noSavedSearches": "No saved searches yet",
     "saveFrequentSearches": "Save your frequently used searches",
     "sampleAllDevices": "All Devices",
-    "sampleSensors": "Sensors"
+    "sampleSensors": "Sensors",
+    "nearbySearch": "Nearby",
+    "nearbySearchDesc": "Lists twins around a point, nearest first. Twins with no recorded location cannot appear.",
+    "capabilitySearch": "By Capability",
+    "capabilitySearchDesc": "Finds twins by what they measure, in which unit, and of which type. The options come from what is actually present.",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "radiusKm": "Radius",
+    "searchCentre": "Search centre",
+    "mapPickHint": "Click the map to move the search centre.",
+    "unit": "Unit",
+    "anyProperty": "Any property",
+    "anyUnit": "Any unit",
+    "anyThingType": "Any type",
+    "capabilitiesLoading": "Loading capability inventory…",
+    "capabilityNeedsCriterion": "Choose at least one criterion: property, unit or type."
   },
   "footer": {
     "copyright": "© 2024 IODT2. All rights reserved.",

@@ -18,7 +18,7 @@ ekler; hedef sistemi daha **stabil** (test + doğrulama + guard) ve daha **dinam
 | Ay | Dilim | Doküman | Durum |
 |----|-------|---------|-------|
 | 2026-06 | Açık Bilgi Modeli temeli + ontoloji dinamikleştirme | [2026-06-acik-bilgi-modeli.md](2026-06-acik-bilgi-modeli.md) | ✅ Tamamlandı |
-| 2026-07 | Discovery Services & SPARQL keşif | [2026-07-discovery-services.md](2026-07-discovery-services.md) | 🟡 Devam ediyor |
+| 2026-07 | Discovery Services & SPARQL keşif | [2026-07-discovery-services.md](2026-07-discovery-services.md) | ✅ Tamamlandı |
 | 2026-08+ | Repository olgunluğu, SHACL, dağıtık PoC | [backlog.md](backlog.md) | ⚪ Planlandı |
 
 ---
@@ -64,7 +64,9 @@ Her ayın dilimi şunları sağlamadan "bitti" sayılmaz:
 1. `docker compose up -d --build` temiz ayağa kalkar, health check'ler yeşil
 2. Yeni davranış için `backend/tests/` altında test var ve geçiyor
 3. Mevcut endpoint imzaları kırılmamış (yalnız ekleme)
-4. Ay dokümanındaki **Çıktılar** bölümü doldurulmuş (ne üretildi, nerede)
+4. Testler `docker` olmadan da çalışır — `LocalTwinStore` fixture'ı gerçek
+   SPARQL metnini rdflib üzerinde koşturur, servis metotlarını mock'lamaz
+5. Ay dokümanındaki **Çıktılar** bölümü doldurulmuş (ne üretildi, nerede)
 
 ---
 

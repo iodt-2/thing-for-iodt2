@@ -13,6 +13,10 @@ services:
       - JVM_ARGS=-Xmx2g
     volumes:
       - iodt2-fuseki-data:/fuseki
+      # Text index assembler, available inside the container for the opt-in
+      # migration. Read only and never loaded automatically — installing it is
+      # a deliberate step, see docs/ip2/2026-07-discovery-services.md
+      - ./fuseki:/fuseki-config:ro
     networks:
       - iodt2-network
     restart: unless-stopped

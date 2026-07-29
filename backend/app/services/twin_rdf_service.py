@@ -12,6 +12,7 @@ Usage:
 
 import json
 import logging
+import re
 import yaml
 import aiohttp
 from datetime import datetime
@@ -27,6 +28,9 @@ from ..core import (
     get_twin_ontology, add_location_triples, get_inverse_type_map
 )
 from ..core.exceptions import FusekiException
+from ..core.geo import (
+    bounding_box, haversine_km, is_valid_point, parse_coordinate,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -573,6 +577,125 @@ class TwinRDFService:
             logger.error(f"Failed to get interface details: {str(e)}")
             raise FusekiException(f"Failed to get interface details: {str(e)}")
 
+    # Fields carried by the Lucene index; see fuseki/text-index.ttl
+    TEXT_INDEX_FIELDS = ("name", "description", "originalId", "address")
+
+    # Lucene query syntax characters that must be escaped in user input
+    _LUCENE_SPECIAL = r'+-&|!(){}[]^"~*?:\/'
+
+    @classmethod
+    def _lucene_escape(cls, value: str) -> str:
+        return "".join(
+            "\\" + char if char in cls._LUCENE_SPECIAL else char
+            for char in str(value)
+        )
+
+    @classmethod
+    def _build_lucene_query(cls, query: str) -> str:
+        """
+        Turn a user search string into a Lucene query across the indexed fields.
+
+        Every whitespace separated token must match (AND), each as a prefix so
+        "temp" still finds "temperature" — matching what the substring scan did.
+        """
+        tokens = [cls._lucene_escape(token) for token in query.split() if token.strip()]
+        if not tokens:
+            return ""
+
+        term_clause = " AND ".join(f"{token}*" for token in tokens)
+        return " OR ".join(f"{field}:({term_clause})" for field in cls.TEXT_INDEX_FIELDS)
+
+    # Probe term that must not match anything real
+    _TEXT_PROBE_TERM = "iodt2zzzprobe9x7q"
+
+    # Per-endpoint result of the text index probe; None means not yet checked
+    _text_index_available: Dict[str, bool] = {}
+
+    async def _text_query_count(self, lucene_query: str) -> int:
+        """Number of subjects text:query returns for a Lucene expression."""
+        probe = f"""
+        PREFIX text: <http://jena.apache.org/text#>
+        SELECT (COUNT(*) AS ?matches)
+        WHERE {{
+            GRAPH ?g {{ (?s ?score) text:query ("{self._escape_literal(lucene_query)}" 5) }}
+        }}
+        """
+        rows = self._parse_sparql_results(await self._execute_query(probe))
+        return int(rows[0].get("matches", 0)) if rows else 0
+
+    async def _sample_indexed_term(self) -> Optional[str]:
+        """
+        A token that is definitely in the store, for use as a positive control.
+
+        Names are hyphenated, and the Lucene analyser splits on hyphens, so a
+        single token is taken rather than the whole name.
+        """
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        SELECT ?name WHERE {{ GRAPH ?g {{ ?uri a ts:TwinInterface ; ts:name ?name }} }}
+        LIMIT 1
+        """
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        if not rows:
+            return None
+
+        tokens = [t for t in re.split(r"[^A-Za-z0-9]+", rows[0].get("name", "")) if len(t) >= 3]
+        return tokens[0] if tokens else None
+
+    async def _has_working_text_index(self) -> bool:
+        """
+        Check that this dataset really answers text:query from an index.
+
+        Exceptions are not a reliable signal here, in either direction:
+
+          - With no text index configured, Jena does not raise. text:query
+            matches *every* subject, so a nonsense term returns the whole
+            store and search silently becomes "return everything".
+          - Where text:query is not implemented at all, it quietly matches
+            nothing, so search silently returns no results instead.
+
+        Both are caught with two controls. A nonsense term must return zero,
+        and a token known to be in the store must return at least one. Only
+        then is the index doing real work.
+        """
+        cached = self._text_index_available.get(self.endpoint)
+        if cached is not None:
+            return cached
+
+        available = False
+        try:
+            negative = await self._text_query_count(f"name:({self._TEXT_PROBE_TERM}*)")
+            if negative:
+                logger.error(
+                    f"FUSEKI_TEXT_INDEX is on but dataset '{self.dataset}' has no "
+                    f"text index: a term that cannot match returned {negative} rows. "
+                    f"Falling back to the substring scan. Install "
+                    f"fuseki/text-index.ttl before enabling the flag."
+                )
+            else:
+                sample = await self._sample_indexed_term()
+                if sample is None:
+                    logger.info(
+                        f"No indexed data in '{self.dataset}' to verify the text "
+                        f"index against; using the substring scan."
+                    )
+                else:
+                    positive = await self._text_query_count(f"name:({sample}*)")
+                    available = positive > 0
+                    if not available:
+                        logger.error(
+                            f"FUSEKI_TEXT_INDEX is on but text:query on dataset "
+                            f"'{self.dataset}' matched nothing for '{sample}', which "
+                            f"is present in the store. The index is missing or "
+                            f"unbuilt; falling back to the substring scan."
+                        )
+        except Exception as exc:
+            logger.warning(f"Text index probe failed for '{self.dataset}': {exc}")
+            available = False
+
+        self._text_index_available[self.endpoint] = available
+        return available
+
     async def search(
         self,
         query: str,
@@ -580,23 +703,86 @@ class TwinRDFService:
         limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
-        Full-text search across TwinInterfaces and TwinInstances.
+        Full text search across TwinInterfaces and TwinInstances.
 
-        Searches by name, description, original ID, property names, and graph URI.
+        Uses the Jena text (Lucene) index when FUSEKI_TEXT_INDEX is on and the
+        dataset genuinely has one; otherwise the substring scan. A dataset
+        without the index configured stays fully searchable either way.
+        """
+        if settings.FUSEKI_TEXT_INDEX and await self._has_working_text_index():
+            try:
+                return await self._search_text_index(query, tenant_id, limit)
+            except Exception as exc:
+                logger.warning(
+                    f"Text index search failed, falling back to substring scan: {exc}"
+                )
 
-        Args:
-            query: Search string (substring match, case-insensitive)
-            tenant_id: Optional tenant filter
-            limit: Maximum number of results
+        return await self._search_substring(query, tenant_id, limit)
 
-        Returns:
-            List of matching items with id, name, type, description, graph
+    async def _search_text_index(
+        self,
+        query: str,
+        tenant_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Search through the Lucene index, ranked by relevance."""
+        lucene_query = self._build_lucene_query(query)
+        if not lucene_query:
+            return []
+
+        sparql = f"""
+        PREFIX ts: <{self.TS}>
+        PREFIX text: <http://jena.apache.org/text#>
+
+        SELECT DISTINCT ?uri ?name ?type ?description ?graph ?originalId ?thingType ?score
+        WHERE {{
+            GRAPH ?graph {{
+                (?uri ?score) text:query ("{self._escape_literal(lucene_query)}" {int(limit)}) .
+                ?uri ts:name ?name .
+                ?uri a ?type .
+                FILTER(?type IN (ts:TwinInterface, ts:TwinInstance))
+                OPTIONAL {{ ?uri ts:description ?description }}
+                OPTIONAL {{ ?uri ts:originalId ?originalId }}
+                OPTIONAL {{ ?uri ts:thingType ?thingType }}
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        ORDER BY DESC(?score) ?name
+        LIMIT {int(limit)}
+        """
+
+        parsed = self._parse_sparql_results(await self._execute_query(sparql))
+        return [self._as_search_item(row) for row in parsed]
+
+    @staticmethod
+    def _as_search_item(row: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalise a search result row for frontend consumption."""
+        return {
+            "id": row.get("uri", ""),
+            "name": row.get("name", ""),
+            "type": "TwinInterface" if "TwinInterface" in row.get("type", "") else "TwinInstance",
+            "description": row.get("description"),
+            "graph": row.get("graph", ""),
+            "originalId": row.get("originalId"),
+            "thingType": row.get("thingType"),
+        }
+
+    async def _search_substring(
+        self,
+        query: str,
+        tenant_id: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        Substring scan fallback.
+
+        Correct but unindexed: every candidate triple is read and lowercased,
+        so cost grows with the store.
         """
         try:
             graph_filter = self._build_tenant_graph_filter(tenant_id)
 
-            safe_query = query.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'")
-            lc_query = safe_query.lower()
+            lc_query = self._escape_literal(query).lower()
 
             # Use UNION pattern to search across different fields
             # This avoids issues with OPTIONAL + FILTER interactions in Fuseki
@@ -629,24 +815,440 @@ class TwinRDFService:
             results = await self._execute_query(sparql)
             parsed = self._parse_sparql_results(results)
 
-            # Normalize results for frontend consumption
-            items = []
-            for row in parsed:
-                item = {
-                    "id": row.get("uri", ""),
-                    "name": row.get("name", ""),
-                    "type": "TwinInterface" if "TwinInterface" in row.get("type", "") else "TwinInstance",
-                    "description": row.get("description"),
-                    "graph": row.get("graph", ""),
-                    "originalId": row.get("originalId"),
-                    "thingType": row.get("thingType"),
-                }
-                items.append(item)
-            return items
+            return [self._as_search_item(row) for row in parsed]
 
         except Exception as e:
             logger.error(f"Failed to search: {str(e)}")
             raise FusekiException(f"Failed to search: {str(e)}")
+
+    # ========================================================================
+    # Public API - Discovery
+    # ========================================================================
+
+    async def count_interfaces(self, tenant_id: Optional[str] = None) -> int:
+        """Total number of TwinInterfaces visible to a tenant."""
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        SELECT (COUNT(DISTINCT ?uri) AS ?total)
+        WHERE {{
+            GRAPH ?graph {{ ?uri a ts:TwinInterface }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        """
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        return int(rows[0]["total"]) if rows else 0
+
+    async def list_interface_uris(
+        self,
+        tenant_id: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[str]:
+        """
+        One page of TwinInterface URIs, ordered by name.
+
+        Paging happens here rather than on the detail query: properties,
+        commands and relationships multiply the rows, so a LIMIT applied to
+        that result would cut a thing in half.
+        """
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        SELECT DISTINCT ?uri ?name
+        WHERE {{
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface .
+                ?uri ts:name ?name .
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        ORDER BY ?name
+        OFFSET {int(offset)}
+        LIMIT {int(limit)}
+        """
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        return [row["uri"] for row in rows if row.get("uri")]
+
+    async def fetch_thing_records(
+        self,
+        uris: List[str],
+        tenant_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Everything needed to describe the given TwinInterfaces, grouped per thing.
+
+        Returns records in the order the URIs were given, each with metadata,
+        location, properties, commands and outgoing relationships.
+        """
+        if not uris:
+            return []
+
+        values = " ".join(f"<{uri}>" for uri in uris)
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        PREFIX geo: <{self.GEO}>
+
+        SELECT ?uri ?name ?description ?thingType ?originalId
+               ?manufacturer ?model ?serialNumber ?firmwareVersion
+               ?dtdlInterface ?dtdlCategory
+               ?lat ?lon ?alt ?address
+               ?propName ?propType ?propDesc ?propUnit ?writable ?minimum ?maximum
+               ?cmdName ?cmdDesc
+               ?relName ?relTarget ?relType ?relStatus
+        WHERE {{
+            VALUES ?uri {{ {values} }}
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface .
+                ?uri ts:name ?name .
+                OPTIONAL {{ ?uri ts:description ?description }}
+                OPTIONAL {{ ?uri ts:thingType ?thingType }}
+                OPTIONAL {{ ?uri ts:originalId ?originalId }}
+                OPTIONAL {{ ?uri ts:manufacturer ?manufacturer }}
+                OPTIONAL {{ ?uri ts:model ?model }}
+                OPTIONAL {{ ?uri ts:serialNumber ?serialNumber }}
+                OPTIONAL {{ ?uri ts:firmwareVersion ?firmwareVersion }}
+                OPTIONAL {{ ?uri ts:dtdlInterface ?dtdlInterface }}
+                OPTIONAL {{ ?uri ts:dtdlCategory ?dtdlCategory }}
+                OPTIONAL {{ ?uri geo:lat ?lat }}
+                OPTIONAL {{ ?uri geo:long ?lon }}
+                OPTIONAL {{ ?uri geo:alt ?alt }}
+                OPTIONAL {{ ?uri ts:address ?address }}
+                OPTIONAL {{
+                    ?uri ts:hasProperty ?prop .
+                    ?prop ts:propertyName ?propName .
+                    OPTIONAL {{ ?prop ts:propertyType ?propType }}
+                    OPTIONAL {{ ?prop ts:description ?propDesc }}
+                    OPTIONAL {{ ?prop ts:unit ?propUnit }}
+                    OPTIONAL {{ ?prop ts:writable ?writable }}
+                    OPTIONAL {{ ?prop ts:minimum ?minimum }}
+                    OPTIONAL {{ ?prop ts:maximum ?maximum }}
+                }}
+                OPTIONAL {{
+                    ?uri ts:hasCommand ?cmd .
+                    ?cmd ts:commandName ?cmdName .
+                    OPTIONAL {{ ?cmd ts:description ?cmdDesc }}
+                }}
+                OPTIONAL {{
+                    ?uri ts:hasRelationship ?rel .
+                    ?rel ts:relationshipName ?relName .
+                    ?rel ts:targetInterface ?relTarget .
+                    OPTIONAL {{ ?rel ts:relationshipType ?relType }}
+                    OPTIONAL {{ ?rel ts:relationshipStatus ?relStatus }}
+                }}
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        """
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        return self._group_thing_records(rows, uris)
+
+    @staticmethod
+    def _escape_literal(value: str) -> str:
+        """
+        Escape a user supplied value for use inside a double-quoted SPARQL literal.
+
+        Queries are assembled as text, so anything reaching a literal has to be
+        escaped here — a stray quote or newline would otherwise close the
+        literal and let the rest of the input be read as query syntax.
+
+        The single quote is deliberately left alone. It needs no escaping inside
+        a double-quoted literal, and although SPARQL 1.1 permits \\' as an ECHAR,
+        rdflib's parser rejects it — so escaping it would break any search for a
+        value containing an apostrophe.
+        """
+        return (
+            str(value)
+            .replace("\\", "\\\\")   # must come first
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        )
+
+    async def find_by_capability(
+        self,
+        property_name: Optional[str] = None,
+        unit: Optional[str] = None,
+        thing_type: Optional[str] = None,
+        dtdl_interface: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[str]:
+        """
+        TwinInterfaces matching capability criteria, combined with AND.
+
+        property_name matches as a case-insensitive substring, so "temp" finds
+        "temperature". unit, thing_type and dtdl_interface match exactly,
+        ignoring case — a unit symbol is an identifier, not a search term.
+        """
+        conditions: List[str] = []
+        needs_property = bool(property_name or unit)
+
+        if needs_property:
+            conditions.append(
+                "?uri ts:hasProperty ?prop . ?prop ts:propertyName ?propName ."
+            )
+        if unit:
+            conditions.append("?prop ts:unit ?unit .")
+        if thing_type:
+            conditions.append("?uri ts:thingType ?thingType .")
+        if dtdl_interface:
+            conditions.append("?uri ts:dtdlInterface ?dtdl .")
+
+        filters: List[str] = []
+        if property_name:
+            filters.append(
+                f'FILTER(CONTAINS(LCASE(STR(?propName)), "{self._escape_literal(property_name).lower()}"))'
+            )
+        if unit:
+            filters.append(
+                f'FILTER(LCASE(STR(?unit)) = "{self._escape_literal(unit).lower()}")'
+            )
+        if thing_type:
+            filters.append(
+                f'FILTER(LCASE(STR(?thingType)) = "{self._escape_literal(thing_type).lower()}")'
+            )
+        if dtdl_interface:
+            filters.append(
+                f'FILTER(LCASE(STR(?dtdl)) = "{self._escape_literal(dtdl_interface).lower()}")'
+            )
+
+        query = f"""
+        PREFIX ts: <{self.TS}>
+
+        SELECT DISTINCT ?uri ?name
+        WHERE {{
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface .
+                ?uri ts:name ?name .
+                {chr(10).join(conditions)}
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+            {chr(10).join(filters)}
+        }}
+        ORDER BY ?name
+        LIMIT {int(limit)}
+        """
+
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        return [row["uri"] for row in rows if row.get("uri")]
+
+    async def list_capabilities(self, tenant_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Inventory of what the tenant's twins can actually measure or do.
+
+        Feeds the discovery UI's filter options, so it reports what is really
+        present rather than a fixed list.
+        """
+        graph_filter = self._build_tenant_graph_filter(tenant_id)
+
+        property_query = f"""
+        PREFIX ts: <{self.TS}>
+
+        SELECT ?propName ?unit (COUNT(DISTINCT ?uri) AS ?count)
+        WHERE {{
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface .
+                ?uri ts:hasProperty ?prop .
+                ?prop ts:propertyName ?propName .
+                OPTIONAL {{ ?prop ts:unit ?unit }}
+            }}
+            {graph_filter}
+        }}
+        GROUP BY ?propName ?unit
+        ORDER BY ?propName
+        """
+
+        type_query = f"""
+        PREFIX ts: <{self.TS}>
+
+        SELECT ?thingType (COUNT(DISTINCT ?uri) AS ?count)
+        WHERE {{
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface .
+                ?uri ts:thingType ?thingType .
+            }}
+            {graph_filter}
+        }}
+        GROUP BY ?thingType
+        ORDER BY ?thingType
+        """
+
+        property_rows = self._parse_sparql_results(await self._execute_query(property_query))
+        type_rows = self._parse_sparql_results(await self._execute_query(type_query))
+
+        properties: Dict[str, Dict[str, Any]] = {}
+        units: Dict[str, int] = {}
+
+        for row in property_rows:
+            name = row.get("propName")
+            if not name:
+                continue
+
+            count = int(row.get("count") or 0)
+            entry = properties.setdefault(name, {"name": name, "count": 0, "units": []})
+            entry["count"] += count
+
+            unit = row.get("unit")
+            if unit:
+                if unit not in entry["units"]:
+                    entry["units"].append(unit)
+                units[unit] = units.get(unit, 0) + count
+
+        return {
+            "properties": sorted(properties.values(), key=lambda item: item["name"]),
+            "units": [
+                {"symbol": symbol, "count": count}
+                for symbol, count in sorted(units.items())
+            ],
+            "thingTypes": [
+                {"name": row["thingType"], "count": int(row.get("count") or 0)}
+                for row in type_rows
+                if row.get("thingType")
+            ],
+        }
+
+    async def find_nearby(
+        self,
+        latitude: float,
+        longitude: float,
+        radius_km: float,
+        tenant_id: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[Tuple[str, float]]:
+        """
+        TwinInterfaces within radius_km of a point, nearest first.
+
+        Two stages: a bounding-box filter in SPARQL to avoid pulling every
+        located twin, then an exact haversine pass in Python. The box is only
+        an optimisation — it is allowed to be loose, never tight.
+
+        Twins without usable coordinates simply do not match.
+
+        Returns:
+            (interface URI, distance in km) pairs, closest first
+        """
+        bounds = bounding_box(latitude, longitude, radius_km)
+
+        filters = [
+            f"FILTER(?lat >= {bounds['min_lat']:.10f} && ?lat <= {bounds['max_lat']:.10f})"
+        ]
+        if bounds["min_lon"] is not None and bounds["max_lon"] is not None:
+            filters.append(
+                f"FILTER(?lon >= {bounds['min_lon']:.10f} && ?lon <= {bounds['max_lon']:.10f})"
+            )
+        else:
+            logger.debug(
+                "Longitude pre-filter skipped (pole or antimeridian); "
+                "haversine still applies the exact bound"
+            )
+
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        PREFIX geo: <{self.GEO}>
+
+        SELECT ?uri ?lat ?lon
+        WHERE {{
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface .
+                ?uri geo:lat ?lat .
+                ?uri geo:long ?lon .
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+            {chr(10).join(filters)}
+        }}
+        """
+
+        rows = self._parse_sparql_results(await self._execute_query(query))
+
+        matches: List[Tuple[str, float]] = []
+        for row in rows:
+            lat = parse_coordinate(row.get("lat"))
+            lon = parse_coordinate(row.get("lon"))
+            if not is_valid_point(lat, lon):
+                continue
+
+            distance = haversine_km(latitude, longitude, lat, lon)
+            if distance <= radius_km:
+                matches.append((row["uri"], distance))
+
+        matches.sort(key=lambda match: match[1])
+        return matches[:limit]
+
+    @staticmethod
+    def _local_name(value: Optional[str]) -> Optional[str]:
+        """Last path or fragment segment of a URI; passes plain strings through."""
+        if not value:
+            return value
+        return value.rsplit("#", 1)[-1].rsplit("/", 1)[-1]
+
+    def _group_thing_records(
+        self,
+        rows: List[Dict[str, Any]],
+        uris: List[str],
+    ) -> List[Dict[str, Any]]:
+        """Collapse the cross-product returned by the detail query into things."""
+        records: Dict[str, Dict[str, Any]] = {}
+
+        for row in rows:
+            uri = row.get("uri")
+            if not uri:
+                continue
+
+            record = records.get(uri)
+            if record is None:
+                record = {
+                    "uri": uri,
+                    "name": row.get("name"),
+                    "description": row.get("description"),
+                    "thingType": row.get("thingType"),
+                    "originalId": row.get("originalId"),
+                    "manufacturer": row.get("manufacturer"),
+                    "model": row.get("model"),
+                    "serialNumber": row.get("serialNumber"),
+                    "firmwareVersion": row.get("firmwareVersion"),
+                    "dtdlInterface": row.get("dtdlInterface"),
+                    "dtdlCategory": row.get("dtdlCategory"),
+                    "latitude": row.get("lat"),
+                    "longitude": row.get("lon"),
+                    "altitude": row.get("alt"),
+                    "address": row.get("address"),
+                    "properties": {},
+                    "commands": {},
+                    "relationships": {},
+                }
+                records[uri] = record
+
+            prop_name = row.get("propName")
+            if prop_name and prop_name not in record["properties"]:
+                record["properties"][prop_name] = {
+                    "name": prop_name,
+                    "type": row.get("propType"),
+                    "description": row.get("propDesc"),
+                    "unit": row.get("propUnit"),
+                    "writable": row.get("writable"),
+                    "minimum": row.get("minimum"),
+                    "maximum": row.get("maximum"),
+                }
+
+            cmd_name = row.get("cmdName")
+            if cmd_name and cmd_name not in record["commands"]:
+                record["commands"][cmd_name] = {
+                    "name": cmd_name,
+                    "description": row.get("cmdDesc"),
+                }
+
+            rel_name = row.get("relName")
+            if rel_name and rel_name not in record["relationships"]:
+                record["relationships"][rel_name] = {
+                    "name": rel_name,
+                    "target": self._local_name(row.get("relTarget")),
+                    "targetUri": row.get("relTarget"),
+                    "type": self._local_name(row.get("relType")),
+                    "status": self._local_name(row.get("relStatus")) or "Active",
+                }
+
+        # Preserve the caller's ordering — the page order comes from list_interface_uris
+        return [records[uri] for uri in uris if uri in records]
 
     async def get_all_things(
         self,

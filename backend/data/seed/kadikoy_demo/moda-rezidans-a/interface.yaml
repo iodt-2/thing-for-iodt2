@@ -10,6 +10,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: moda-rezidans-a
+    latitude: '40.9795'
+    longitude: '29.0265'
+    address: Moda Mahallesi, Kadıköy, İstanbul
+    altitude: '18.0'
     dtdl-interface: dtmi:iodt2:Building;1
     dtdl-interface-name: Building
     dtdl-category: seismic

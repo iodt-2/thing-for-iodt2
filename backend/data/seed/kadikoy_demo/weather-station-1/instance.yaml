@@ -9,6 +9,11 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: weather-station-1
+    latitude: '40.987987524791805'
+    longitude: '29.037157667741326'
+    address: Fenerium, 3, K-15 Söğütlüçeşme Kavşağı, Ziverbey, Zühtüpaşa Mahallesi,
+      Kadıköy, İstanbul, Marmara Bölgesi, 34724, Türkiye
+    altitude: '5.0'
 spec:
   name: iodt2-weather-station-1
   interface: iodt2-weather-station-1

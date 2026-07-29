@@ -9,6 +9,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: moda-caddesi
+    latitude: '40.9812'
+    longitude: '29.0258'
+    address: Moda Caddesi, Kadıköy, İstanbul
+    altitude: '15.0'
 spec:
   name: iodt2-moda-caddesi
   interface: iodt2-moda-caddesi

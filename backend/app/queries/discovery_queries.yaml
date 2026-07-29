@@ -1,0 +1,184 @@
+# Discovery query catalog
+#
+# Saved searches live here rather than inside a React component, so adding
+# one needs no frontend rebuild. Served by GET /api/v2/discovery/queries.
+#
+# Every entry is parsed as SPARQL at load time; a broken query is dropped
+# with a warning instead of being handed to the UI.
+
+queries:
+- id: all-twininterfaces
+  category: basic
+  name: All TwinInterfaces
+  description: Lists all interfaces in the system with name, thing type and DTDL category.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT DISTINCT ?interface ?name ?thingType ?dtdlCategory\n\
+    WHERE {\n  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n    ?interface ts:name ?name .\n    OPTIONAL\
+    \ { ?interface ts:thingType ?thingType }\n    OPTIONAL { ?interface ts:dtdlCategory ?dtdlCategory\
+    \ }\n  }\n}\nORDER BY ?name\nLIMIT 100"
+- id: isme-gore-ara
+  category: basic
+  name: İsme Göre Ara
+  description: Finds things whose name contains a specific text. Replace "sensor" with your own term.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?interface ?name ?thingType ?dtdlCategory\n\
+    WHERE {\n  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n    ?interface ts:name ?name .\n    FILTER(CONTAINS(LCASE(?name),\
+    \ \"sensor\"))\n    OPTIONAL { ?interface ts:thingType ?thingType }\n    OPTIONAL { ?interface ts:dtdlCategory\
+    \ ?dtdlCategory }\n  }\n}\nORDER BY ?name\nLIMIT 50"
+- id: filter-by-thing-type
+  category: basic
+  name: Filter by Thing Type
+  description: Filters by ts:thingType value. Replace "sensor" with "device" or "component".
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?interface ?name ?dtdlCategory ?dtdlInterface\n\
+    WHERE {\n  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n    ?interface ts:name ?name .\n    ?interface\
+    \ ts:thingType \"sensor\" .\n    OPTIONAL { ?interface ts:dtdlCategory ?dtdlCategory }\n    OPTIONAL\
+    \ { ?interface ts:dtdlInterface ?dtdlInterface }\n  }\n}\nORDER BY ?name"
+- id: filter-by-dtdl-category
+  category: basic
+  name: Filter by DTDL Category
+  description: Lists things matching a DTDL category. Replace "environmental" with "seismic" or "base".
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?interface ?name ?thingType ?dtdlInterface\n\
+    WHERE {\n  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n    ?interface ts:name ?name .\n    ?interface\
+    \ ts:dtdlCategory \"environmental\" .\n    OPTIONAL { ?interface ts:thingType ?thingType }\n    OPTIONAL\
+    \ { ?interface ts:dtdlInterface ?dtdlInterface }\n  }\n}\nORDER BY ?name"
+- id: interface-all-properties
+  category: properties
+  name: Interface + All Properties
+  description: Lists all properties (name, type, unit, writable) for every interface.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?name ?propName ?propType ?unit ?writable\n\
+    WHERE {\n  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n    ?interface ts:name ?name .\n    ?interface\
+    \ ts:hasProperty ?prop .\n    ?prop ts:propertyName ?propName .\n    ?prop ts:propertyType ?propType\
+    \ .\n    OPTIONAL { ?prop ts:unit ?unit }\n    OPTIONAL { ?prop ts:writable ?writable }\n  }\n}\n\
+    ORDER BY ?name ?propName\nLIMIT 200"
+- id: search-by-property-name
+  category: properties
+  name: Search by Property Name
+  description: Finds things that have a property matching the given name. Replace "temperature" with your
+    term.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?name ?propName ?propType ?unit\nWHERE {\n\
+    \  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n    ?interface ts:name ?name .\n    ?interface\
+    \ ts:hasProperty ?prop .\n    ?prop ts:propertyName ?propName .\n    ?prop ts:propertyType ?propType\
+    \ .\n    FILTER(CONTAINS(LCASE(?propName), \"temperature\"))\n    OPTIONAL { ?prop ts:unit ?unit }\n\
+    \  }\n}\nORDER BY ?name"
+- id: writable-properties
+  category: properties
+  name: Writable Properties
+  description: 'Lists all properties marked as x-writable: true across all interfaces.'
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n\n\
+    SELECT ?name ?propName ?propType ?unit\nWHERE {\n  GRAPH ?g {\n    ?interface a ts:TwinInterface .\n\
+    \    ?interface ts:name ?name .\n    ?interface ts:hasProperty ?prop .\n    ?prop ts:propertyName\
+    \ ?propName .\n    ?prop ts:propertyType ?propType .\n    ?prop ts:writable \"true\"^^xsd:boolean\
+    \ .\n    OPTIONAL { ?prop ts:unit ?unit }\n  }\n}\nORDER BY ?name ?propName"
+- id: all-active-relationships
+  category: relationships
+  name: All Active Relationships
+  description: Lists all Relationship nodes with ts:Active status — source, target, and type.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?sourceName ?relName ?relType ?targetName\n\
+    WHERE {\n  GRAPH ?g {\n    ?rel a ts:Relationship .\n    ?rel ts:relationshipName ?relName .\n   \
+    \ ?rel ts:relationshipStatus ts:Active .\n    ?rel ts:sourceInterface ?src .\n    ?rel ts:targetInterface\
+    \ ?tgt .\n    OPTIONAL { ?src ts:name ?sourceName }\n    OPTIONAL { ?tgt ts:name ?targetName }\n \
+    \   OPTIONAL {\n      ?rel ts:relationshipType ?relTypeUri .\n      BIND(STRAFTER(STR(?relTypeUri),\
+    \ \"#\") AS ?relType)\n    }\n  }\n}\nORDER BY ?sourceName ?relName\nLIMIT 100"
+- id: inactive-broken-relationships
+  category: relationships
+  name: Inactive (Broken) Relationships
+  description: Lists relationships that were set to ts:Inactive because their target was deleted.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?sourceName ?relName ?relType ?targetName\n\
+    WHERE {\n  GRAPH ?g {\n    ?rel a ts:Relationship .\n    ?rel ts:relationshipName ?relName .\n   \
+    \ ?rel ts:relationshipStatus ts:Inactive .\n    ?rel ts:sourceInterface ?src .\n    ?rel ts:targetInterface\
+    \ ?tgt .\n    OPTIONAL { ?src ts:name ?sourceName }\n    OPTIONAL { ?tgt ts:name ?targetName }\n \
+    \   OPTIONAL {\n      ?rel ts:relationshipType ?relTypeUri .\n      BIND(STRAFTER(STR(?relTypeUri),\
+    \ \"#\") AS ?relType)\n    }\n  }\n}\nORDER BY ?sourceName\nLIMIT 100"
+- id: relationships-by-type-feeds
+  category: relationships
+  name: Relationships by Type (feeds)
+  description: Filters relationships by a specific type. Replace ts:feeds with ts:controls, ts:contains,
+    etc.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?sourceName ?relName ?targetName ?status\n\
+    WHERE {\n  GRAPH ?g {\n    ?rel a ts:Relationship .\n    ?rel ts:relationshipType ts:feeds .\n   \
+    \ ?rel ts:relationshipName ?relName .\n    ?rel ts:sourceInterface ?src .\n    ?rel ts:targetInterface\
+    \ ?tgt .\n    OPTIONAL { ?src ts:name ?sourceName }\n    OPTIONAL { ?tgt ts:name ?targetName }\n \
+    \   OPTIONAL {\n      ?rel ts:relationshipStatus ?statusUri .\n      BIND(STRAFTER(STR(?statusUri),\
+    \ \"#\") AS ?status)\n    }\n  }\n}\nORDER BY ?sourceName"
+- id: outgoing-relationships-of-a-thing
+  category: relationships
+  name: Outgoing Relationships of a Thing
+  description: Lists all relationships going out from a specific thing. Replace the name value.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?relName ?relType ?targetName ?status\nWHERE\
+    \ {\n  GRAPH ?g {\n    ?src a ts:TwinInterface .\n    ?src ts:name \"iodt2-temp1\" .\n    ?src ts:hasRelationship\
+    \ ?rel .\n    ?rel ts:relationshipName ?relName .\n    ?rel ts:targetInterface ?tgt .\n    OPTIONAL\
+    \ { ?tgt ts:name ?targetName }\n    OPTIONAL {\n      ?rel ts:relationshipType ?relTypeUri .\n   \
+    \   BIND(STRAFTER(STR(?relTypeUri), \"#\") AS ?relType)\n    }\n    OPTIONAL {\n      ?rel ts:relationshipStatus\
+    \ ?statusUri .\n      BIND(STRAFTER(STR(?statusUri), \"#\") AS ?status)\n    }\n  }\n}"
+- id: incoming-relationships-to-a-thing
+  category: relationships
+  name: Incoming Relationships to a Thing
+  description: Lists all relationships targeting a specific thing via ts:targetInterface. Replace the
+    name value.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?sourceName ?relName ?relType ?status\nWHERE\
+    \ {\n  GRAPH ?g {\n    ?rel a ts:Relationship .\n    ?rel ts:targetInterface ?tgt .\n    ?tgt ts:name\
+    \ \"iodt2-gateway1\" .\n    ?rel ts:sourceInterface ?src .\n    ?rel ts:relationshipName ?relName\
+    \ .\n    OPTIONAL { ?src ts:name ?sourceName }\n    OPTIONAL {\n      ?rel ts:relationshipType ?relTypeUri\
+    \ .\n      BIND(STRAFTER(STR(?relTypeUri), \"#\") AS ?relType)\n    }\n    OPTIONAL {\n      ?rel\
+    \ ts:relationshipStatus ?statusUri .\n      BIND(STRAFTER(STR(?statusUri), \"#\") AS ?status)\n  \
+    \  }\n  }\n}"
+- id: all-twininstances
+  category: instances
+  name: All TwinInstances
+  description: Lists all TwinInstances and the TwinInterface each one is linked to.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?instance ?instanceName ?interfaceName\nWHERE\
+    \ {\n  GRAPH ?g {\n    ?instance a ts:TwinInstance .\n    ?instance ts:name ?instanceName .\n    OPTIONAL\
+    \ {\n      ?instance ts:instanceOf ?iface .\n      ?iface ts:name ?interfaceName .\n    }\n  }\n}\n\
+    ORDER BY ?instanceName\nLIMIT 100"
+- id: instance-relationships
+  category: instances
+  name: Instance Relationships
+  description: Lists runtime connections (ts:InstanceRelationship) between TwinInstances.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?instanceName ?relName ?targetInstanceName\n\
+    WHERE {\n  GRAPH ?g {\n    ?instance a ts:TwinInstance .\n    ?instance ts:name ?instanceName .\n\
+    \    ?instance ts:hasInstanceRelationship ?rel .\n    ?rel ts:relationshipName ?relName .\n    ?rel\
+    \ ts:targetInstance ?target .\n    OPTIONAL { ?target ts:name ?targetInstanceName }\n  }\n}\nORDER\
+    \ BY ?instanceName\nLIMIT 100"
+- id: relationship-type-statistics
+  category: analytics
+  name: Relationship Type Statistics
+  description: Shows how many Active and Inactive instances exist for each relationship type.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?relType (COUNT(?rel) AS ?total)\n       (SUM(IF(?statusUri\
+    \ = ts:Active, 1, 0)) AS ?active)\n       (SUM(IF(?statusUri = ts:Inactive, 1, 0)) AS ?inactive)\n\
+    WHERE {\n  GRAPH ?g {\n    ?rel a ts:Relationship .\n    OPTIONAL { ?rel ts:relationshipType ?relType\
+    \ }\n    OPTIONAL { ?rel ts:relationshipStatus ?statusUri }\n  }\n}\nGROUP BY ?relType\nORDER BY DESC(?toplam)"
+- id: named-graph-list
+  category: analytics
+  name: Named Graph List
+  description: Shows all named graphs in Fuseki and the triple count for each one.
+  query: "SELECT ?g (COUNT(*) AS ?tripleCount)\nWHERE {\n  GRAPH ?g {\n    ?s ?p ?o .\n  }\n  FILTER(STRSTARTS(STR(?g),\
+    \ \"http://twin.io/graphs/\"))\n}\nGROUP BY ?g\nORDER BY ?g"
+- id: twins-with-location
+  category: discovery
+  name: Konumu Olan Twin'ler
+  description: Cografi kesfe girebilecek twin'leri koordinatlariyla listeler.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\nPREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>\n\
+    \nSELECT ?name ?lat ?lon ?address\nWHERE {\n  GRAPH ?g {\n    ?uri a ts:TwinInterface .\n    ?uri\
+    \ ts:name ?name .\n    ?uri geo:lat ?lat .\n    ?uri geo:long ?lon .\n    OPTIONAL { ?uri ts:address\
+    \ ?address }\n  }\n  #{TENANT}\n}\nORDER BY ?name\nLIMIT 100"
+- id: twins-without-location
+  category: discovery
+  name: Konumu Olmayan Twin'ler
+  description: Cografi kesifte hic gorunmeyecek twin'ler; veri eksigini gosterir.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\nPREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>\n\
+    \nSELECT ?name\nWHERE {\n  GRAPH ?g {\n    ?uri a ts:TwinInterface .\n    ?uri ts:name ?name .\n \
+    \   FILTER NOT EXISTS { ?uri geo:lat ?anyLat }\n  }\n  #{TENANT}\n}\nORDER BY ?name\nLIMIT 100"
+- id: orphan-twins
+  category: discovery
+  name: Yalitilmis Twin'ler
+  description: Hicbir aktif iliskisi olmayan twin'ler; ne besleyen ne beslenen.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?name\nWHERE {\n  GRAPH ?g {\n    ?uri a ts:TwinInterface\
+    \ .\n    ?uri ts:name ?name .\n    FILTER NOT EXISTS {\n      ?rel ts:relationshipStatus ts:Active\
+    \ .\n      { ?rel ts:sourceInterface ?uri } UNION { ?rel ts:targetInterface ?uri }\n    }\n  }\n \
+    \ #{TENANT}\n}\nORDER BY ?name\nLIMIT 100"
+- id: measurable-properties
+  category: discovery
+  name: Olculebilir Buyukluk Envanteri
+  description: Hangi buyukluk, hangi birimle, kac twin tarafindan olculuyor.
+  query: "PREFIX ts: <http://twin.dtd/ontology#>\n\nSELECT ?propName ?unit (COUNT(DISTINCT ?uri) AS ?twinCount)\n\
+    WHERE {\n  GRAPH ?g {\n    ?uri a ts:TwinInterface .\n    ?uri ts:hasProperty ?prop .\n    ?prop ts:propertyName\
+    \ ?propName .\n    OPTIONAL { ?prop ts:unit ?unit }\n  }\n  #{TENANT}\n}\nGROUP BY ?propName ?unit\n\
+    ORDER BY DESC(?twinCount) ?propName"

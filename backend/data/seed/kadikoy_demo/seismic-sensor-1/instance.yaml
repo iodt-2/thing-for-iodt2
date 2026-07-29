@@ -9,6 +9,8 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: seismic-sensor-1
+    latitude: '40.9836'
+    longitude: '29.0303'
 spec:
   name: iodt2-seismic-sensor-1
   interface: iodt2-seismic-sensor-1

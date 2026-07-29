@@ -133,6 +133,11 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
+# W3C WoT Discovery fixes the self-description at the site root, so this one
+# router is mounted without the /api prefix
+from app.api.v2.discovery import well_known_router  # noqa: E402
+app.include_router(well_known_router)
+
 
 @app.get("/")
 async def root():

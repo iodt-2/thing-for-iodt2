@@ -9,6 +9,11 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: pm25-sensor-1
+    latitude: '40.9755'
+    longitude: '29.0655'
+    address: Cavitpaşa sokağı, Çiftehavuzlar, Göztepe Mahallesi, Kadıköy, İstanbul,
+      Marmara Bölgesi, 34730, Türkiye
+    altitude: '43.0'
 spec:
   name: iodt2-pm25-sensor-1
   interface: iodt2-pm25-sensor-1

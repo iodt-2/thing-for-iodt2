@@ -1,0 +1,74 @@
+# Fuseki assembler: TDB2 dataset with a Jena text (Lucene) index.
+#
+# Full text search currently runs as CONTAINS(LCASE(...)), which scans every
+# matching triple. This configuration puts a Lucene index in front of the
+# fields users actually search on.
+#
+# ENABLING THIS IS A DELIBERATE, SEPARATE STEP — see docs/ip2/2026-07-*.md.
+# The platform works without it; FUSEKI_TEXT_INDEX=false keeps the substring
+# path, and even with the flag on a failing text query falls back to it.
+#
+# Placeholders replaced when the config is installed:
+#   ${DATASET}  dataset name, e.g. iodt2-thing-description
+#   ${DB_DIR}   TDB2 location, e.g. /fuseki/databases/iodt2-thing-description
+#   ${IDX_DIR}  Lucene directory, e.g. /fuseki/text-index/iodt2-thing-description
+
+@prefix :        <#> .
+@prefix fuseki:  <http://jena.apache.org/fuseki#> .
+@prefix ja:      <http://jena.hpl.hp.com/2005/11/Assembler#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
+@prefix text:    <http://jena.apache.org/text#> .
+@prefix ts:      <http://twin.dtd/ontology#> .
+
+[] ja:loadClass "org.apache.jena.query.text.TextQuery" .
+text:TextDataset  rdfs:subClassOf  ja:RDFDataset .
+
+# Endpoints are named explicitly. Without fuseki:name they are published on
+# the dataset URL only, and TwinRDFService talks to /query, /update and /data —
+# an unnamed config answers 405 on every write.
+:service a fuseki:Service ;
+    fuseki:name     "${DATASET}" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "query"  ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:query  ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ; fuseki:name "update" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp-rw ; fuseki:name "data"   ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp-r  ; fuseki:name "get"    ] ;
+    # Dataset level endpoints, matching what the admin UI creates
+    fuseki:endpoint [ fuseki:operation fuseki:query ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp-rw ] ;
+    fuseki:dataset  :text_dataset .
+
+:text_dataset a text:TextDataset ;
+    text:dataset :tdb_dataset ;
+    text:index   :lucene_index .
+
+# Same TDB2 location the admin-created dataset uses, so no data is copied
+:tdb_dataset a tdb2:DatasetTDB2 ;
+    tdb2:location "${DB_DIR}" .
+
+:lucene_index a text:TextIndexLucene ;
+    text:directory <file:${IDX_DIR}> ;
+    text:entityMap :entity_map ;
+    # Needed for text:query to return the matched literal alongside the subject
+    text:storeValues true ;
+    text:analyzer [ a text:StandardAnalyzer ] .
+
+# Only interface and instance level fields are indexed. Property names live on
+# a separate node, so matching them would return property URIs rather than
+# twins — capability search covers that case instead.
+:entity_map a text:EntityMap ;
+    text:entityField "uri" ;
+    text:defaultField "name" ;
+    text:uidField    "uid" ;
+    # Twin data lives in named graphs; without this the index cannot tell
+    # tenants apart
+    text:graphField  "graph" ;
+    text:map (
+        [ text:field "name"        ; text:predicate ts:name ]
+        [ text:field "description" ; text:predicate ts:description ]
+        [ text:field "originalId"  ; text:predicate ts:originalId ]
+        [ text:field "address"     ; text:predicate ts:address ]
+    ) .

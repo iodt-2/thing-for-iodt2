@@ -10,6 +10,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: bagdat-avenue
+    latitude: '40.9760'
+    longitude: '29.0480'
+    address: Bağdat Caddesi, Kızıltoprak, Kadıköy, İstanbul
+    altitude: '12.0'
     dtdl-interface: dtmi:iodt2:Street;1
     dtdl-interface-name: Street
     dtdl-category: seismic

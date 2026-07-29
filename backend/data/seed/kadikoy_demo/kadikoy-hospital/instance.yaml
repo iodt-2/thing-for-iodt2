@@ -9,6 +9,11 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: kadikoy-hospital
+    latitude: '40.981846202493585'
+    longitude: '29.04141627053272'
+    address: Eczane Beyaz Köşk, 61, Bağdat Caddesi, Kızıltoprak, Feneryolu Mahallesi,
+      Kadıköy, İstanbul, Marmara Bölgesi, 34724, Türkiye
+    altitude: '11.0'
 spec:
   name: iodt2-kadikoy-hospital
   interface: iodt2-kadikoy-hospital

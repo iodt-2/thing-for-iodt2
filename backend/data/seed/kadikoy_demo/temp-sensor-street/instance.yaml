@@ -9,6 +9,11 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: temp-sensor-street
+    latitude: '40.975'
+    longitude: '29.065'
+    address: Yalçın Eczanesi, 132, Bağdat Caddesi, Kalamış, Fenerbahçe Mahallesi,
+      Kadıköy, İstanbul, Marmara Bölgesi, 34726, Türkiye
+    altitude: '27.0'
 spec:
   name: iodt2-temp-sensor-street
   interface: iodt2-temp-sensor-street

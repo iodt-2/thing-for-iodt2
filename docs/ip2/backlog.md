@@ -68,6 +68,18 @@ doğrulanabilir hâle gelir.
 - **DTDL → RDF tam dönüşüm.** Şu an DTDL bağlaması yalnızca literal (`ts:dtdlInterface "dtmi:..."`). `extends` / `Component` / `Relationship` semantiği RDF'e taşınmıyor.
 - **OWL RL reasoning.** Fuseki inference kuralları ile `owl:inverseOf` çıkarımının sorgu anında yapılması — açık inverse triple yazmaya gerek kalmaz.
 - **Ontoloji sürüm yönetimi.** `owl:versionInfo` + değişiklik günlüğü.
+- **Seed verisinde birim tutarsızlığı.** Aynı büyüklük hem `m/s²` hem
+  `metrePerSecondSquared`, hem `°C` hem `Cel` olarak kayıtlı. Kod hatası değil,
+  ama birim faceti parçalanıyor ve yetenek filtresinin işe yararlığını düşürüyor.
+  Seed verisi tek bir birim sözlüğüne (UCUM) hizalanmalı.
+- **`iodt2` tenant'ında artık veri.** Eski deneylerden kalma 9 twin `default`
+  dışında bir tenant'ta duruyor ve tenant filtresiz sorgularda görünüyor.
+  Temizlenmeli.
+- **`get_all_things` yanlış toplam döndürüyor.** `"total": len(items)` sayfa
+  boyutunu veriyor, gerçek toplamı değil. Temmuz'daki `/things` ucu doğru
+  sayımı yapıyor (`count_interfaces`); eski uç da ona hizalanmalı.
+- **TD'lerde protokol bağlaması (`forms`).** Platform twin'leri tarif ediyor,
+  proxy'lemiyor. Gerçek cihaz uçları modele girerse TD'ler tam uyumlu olur.
 - **`backend/tests/` altındaki demo script'leri.** `test_dtdl_loader.py`,
   `test_dtdl_converter.py`, `test_dtdl_validator.py`, `test_seismic_dtdl.py` —
   dördü de `main()` içeren, `print` ile çıktı veren script'ler; pytest hiçbirini

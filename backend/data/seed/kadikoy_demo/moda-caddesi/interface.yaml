@@ -10,6 +10,10 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: moda-caddesi
+    latitude: '40.9812'
+    longitude: '29.0258'
+    address: Moda Caddesi, Kadıköy, İstanbul
+    altitude: '15.0'
     dtdl-interface: dtmi:iodt2:Street;1
     dtdl-interface-name: Street
     dtdl-category: seismic

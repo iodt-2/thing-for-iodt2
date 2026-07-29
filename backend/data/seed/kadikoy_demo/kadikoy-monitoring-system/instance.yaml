@@ -9,6 +9,8 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: kadikoy-monitoring-system
+    latitude: '40.98'
+    longitude: '29.05'
 spec:
   name: iodt2-kadikoy-monitoring-system
   interface: iodt2-kadikoy-monitoring-system

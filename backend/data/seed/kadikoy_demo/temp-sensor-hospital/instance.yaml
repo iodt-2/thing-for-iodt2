@@ -9,6 +9,8 @@ metadata:
   annotations:
     source: wot-thing-description
     original-id: temp-sensor-hospital
+    latitude: '40.9836'
+    longitude: '29.0303'
 spec:
   name: iodt2-temp-sensor-hospital
   interface: iodt2-temp-sensor-hospital
