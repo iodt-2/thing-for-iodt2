@@ -1,0 +1,120 @@
+backend/data/seed/kadikoy_demo/sismik-sensor-z1/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-15
+backend/app/services/query_catalog_service.py
+  s_aad3adc72a0b14::t_9907066dcc0252 86-101
+  s_aad3adc72a0b14::t_f9fd38c41e8da2 25-39
+  s_aad3adc72a0b14::t_fed7a6125066fe 108-139
+backend/data/seed/kadikoy_demo/moda-caddesi/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-15
+frontend/src/services/discoveryService.js
+  s_aad3adc72a0b14::t_46b0cd024d1c4c 22-54
+  s_aad3adc72a0b14::t_476ddedad141c5 1-21,55-122
+backend/app/services/thing_description_service.py
+  s_aad3adc72a0b14::t_767e941ecbc40a 1-182
+backend/tests/test_discovery_capability.py
+  s_aad3adc72a0b14::t_273bfe947a4486 1-287
+backend/tests/conftest.py
+  s_aad3adc72a0b14::t_109d13cfcd3344 24-114
+backend/data/seed/kadikoy_demo/sismik-sensor-z1/interface.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 13-16
+backend/tests/test_discovery_geo.py
+  s_aad3adc72a0b14::t_4190b0f9d56b3e 1-254
+backend/data/seed/kadikoy_demo/kadikoy-baz/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-15
+backend/data/seed/kadikoy_demo/temp-sensor-street/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-16
+backend/tests/test_tdd_conformance.py
+  s_aad3adc72a0b14::t_cbba9deef277a8 1-238
+frontend/src/locales/en/translation.json
+  s_aad3adc72a0b14::t_f709ec0ba4cb37 228-243,298
+backend/data/seed/kadikoy_demo/sismik-sensor-z2/interface.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 13-16
+backend/data/seed/kadikoy_demo/kadikoy-hospital/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-16
+backend/app/services/twin_rdf_service.py
+  s_aad3adc72a0b14::t_086024a3f41f41 15,31-33,580-698,706,708-718,720,722-780,785,818,824-1252
+backend/data/seed/kadikoy_demo/kadikoy-monitoring-system/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-13
+docker-compose.yml
+  s_aad3adc72a0b14::t_056dfbd5399e79 16-19
+backend/app/services/seed_service.py
+  s_aad3adc72a0b14::t_df6f56bd9f5049 10-12
+  s_aad3adc72a0b14::t_567a4470dbc8cf 47,50-54,56-58,62-64,71
+docs/ip2/2026-07-discovery-services.md
+  s_aad3adc72a0b14::t_248b1012e1a220 5,11-13,15-16,18-19,23,25,27-29,33-35,37-40,42-47,49,51-55,57-58,60-69,73,75-79,81-86,88-89,93,95-98,100-101,105,107-111,113-116,118-119,123,125-130,132-134,138,140-147,149-160,164-173,175,177,179-194,198,200-201,203,205-209,211,213-216,218,220-222,224-228,230,232-235,237,239-272,278-331,333-334
+backend/data/seed/kadikoy_demo/moda-caddesi/interface.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 13-16
+backend/data/seed/kadikoy_demo/moda-rezidans-a/interface.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 13-16
+fuseki/text-index.ttl
+  s_aad3adc72a0b14::t_0464e710031c5a 1-74
+backend/app/core/config.py
+  s_aad3adc72a0b14::t_efe08da4605c0f 45-50,60
+  s_aad3adc72a0b14::t_882e2964e0f5f2 61-68
+backend/data/seed/kadikoy_demo/weather-station-1/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-16
+docs/ip2/README.md
+  s_aad3adc72a0b14::t_97c68e833699de 67-69
+  s_aad3adc72a0b14::t_66fcb85fa1ddec 21
+backend/data/seed/kadikoy_demo/pm25-sensor-1/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-16
+backend/main.py
+  s_aad3adc72a0b14::t_8208f77a56d08a 136-140
+backend/data/seed/kadikoy_demo/moda-rezidans-a/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-15
+backend/data/seed/kadikoy_demo/seismic-sensor-1/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-13
+backend/data/seed/kadikoy_demo/bagdat-avenue/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-15
+backend/app/queries/discovery_queries.yaml
+  s_aad3adc72a0b14::t_0853094570c901 1-2,5-6,8-17,19-153
+  s_aad3adc72a0b14::t_b44dcf9668f79c 3-4,7,154-160,162-167,169-174,177-182
+  s_aad3adc72a0b14::t_6a12927a8641b7 161,168,175-176,183
+  s_aad3adc72a0b14::t_59fa9db812ab6d 18
+backend/data/seed/kadikoy_demo/base-station-1/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-16
+backend/data/seed/kadikoy_demo/sismik-sensor-z2/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-15
+backend/data/seed/kadikoy_demo/temp-sensor-hospital/instance.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 12-13
+backend/data/seed/kadikoy_demo/kadikoy-baz/interface.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 13-16
+frontend/src/pages/twin/SearchThings.jsx
+  s_aad3adc72a0b14::t_9b1aaf885b9de7 1-2,20-21,83-111
+  s_aad3adc72a0b14::t_cfc880eee5b2d5 122-123,711-713,1335-1336,1360
+  s_aad3adc72a0b14::t_2591b19d72dafd 1038-1039
+  s_aad3adc72a0b14::t_33625a8c732f89 579-624,730-731
+  s_aad3adc72a0b14::t_0eed7c0153b6f3 1041-1046
+  s_aad3adc72a0b14::t_24f3d909a2706d 996-1037,1040,1047-1131
+backend/app/api/__init__.py
+  s_aad3adc72a0b14::t_c43d0d6a204409 8
+  s_aad3adc72a0b14::t_a9c21df50e82d5 46-51
+backend/data/seed/kadikoy_demo/bagdat-avenue/interface.yaml
+  s_aad3adc72a0b14::t_dae93be11f712c 13-16
+backend/tests/test_discovery_queries.py
+  s_aad3adc72a0b14::t_6c3bde2341fb7a 1-231
+docs/ip2/backlog.md
+  s_aad3adc72a0b14::t_66fcb85fa1ddec 71-82
+backend/app/api/v2/discovery.py
+  s_aad3adc72a0b14::t_8fe8889669d824 1-604,607,609-613,621,624-644,649-675
+  s_aad3adc72a0b14::t_3063f647ae15f3 605-606,608,614-620,622-623
+  s_aad3adc72a0b14::t_e4c576be2fd39c 645-648
+frontend/src/locales/tr/translation.json
+  s_aad3adc72a0b14::t_f709ec0ba4cb37 228-243,298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "f4ba1c58056cfb02120b1400d1cb1cb89a8340ae",
+  "prompts": {},
+  "sessions": {
+    "s_aad3adc72a0b14": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b23a9504-1874-4ee2-bb68-3ae993946476",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
