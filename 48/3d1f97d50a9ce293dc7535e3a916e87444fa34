@@ -1,0 +1,66 @@
+backend/tests/test_integrations.py
+  s_6ce05fcebc14bc::t_fc9ca783dcc455 93-98,102-106,262,378-384
+  s_6ce05fcebc14bc::t_b586f484901413 13-66,74-90,99-101,107-246,249-260,263-377,386-477
+docs/ip2/netcad-samples/telecom-towers.json
+  s_6ce05fcebc14bc::t_4c0429ce3e8a46 1-657
+docs/ip2/2026-08-dis-sistem-entegrasyonu.md
+  s_6ce05fcebc14bc::t_19938197044dc2 1-108,112-123,125-280
+  s_6ce05fcebc14bc::t_562a892fc8902b 109-111,124
+backend/app/services/integrations/netcad.py
+  s_6ce05fcebc14bc::t_0b06ad13126661 1-315
+backend/app/services/twin_generator_service.py
+  s_6ce05fcebc14bc::t_9fa6bb6fcd520f 76,87-88,138-144,171,202-205
+docs/ip2/netcad-samples/buildings-inventory.json
+  s_6ce05fcebc14bc::t_cc2743a54cd129 1-608
+backend/app/services/twin_rdf_service.py
+  s_6ce05fcebc14bc::t_143c8f8dbfdaf3 407-446
+  s_6ce05fcebc14bc::t_a68f3d57e6d79b 28-29,1766-1768,1868-1870
+backend/app/services/integrations/base.py
+  s_6ce05fcebc14bc::t_101a17dcb84638 1-259
+backend/app/services/integrations/__init__.py
+  s_6ce05fcebc14bc::t_69bc2a806dad40 1-35
+backend/app/api/__init__.py
+  s_6ce05fcebc14bc::t_731916d88ea101 8,58-63
+backend/app/core/config.py
+  s_6ce05fcebc14bc::t_143c8f8dbfdaf3 69-83
+backend/app/api/v2/integrations.py
+  s_6ce05fcebc14bc::t_b331830685c6a3 1-128
+backend/app/core/__init__.py
+  s_6ce05fcebc14bc::t_a68f3d57e6d79b 9,12
+backend/app/services/integrations/importer.py
+  s_6ce05fcebc14bc::t_c61c504a796641 1-306
+backend/app/services/integrations/registry.py
+  s_6ce05fcebc14bc::t_f15662f5ada47b 1-45
+backend/tests/fixtures/netcad/risk.json
+  s_6ce05fcebc14bc::t_3c7173d4ed6701 1-47
+docs/ip2/netcad-samples/earthquakes-real.json
+  s_6ce05fcebc14bc::t_ea65e7540ced09 1-237
+docs/ip2/netcad-samples/risk-assessment.json
+  s_6ce05fcebc14bc::t_4c0429ce3e8a46 1-47
+backend/app/core/twin_ontology.py
+  s_6ce05fcebc14bc::t_caa9be4cb9fd9e 58,172-180,467-535,547
+  s_6ce05fcebc14bc::t_cbb75f86b60f7a 790-888,911-913
+  s_6ce05fcebc14bc::t_ec2753c4da21ac 721-725
+backend/tests/fixtures/netcad/buildings.json
+  s_6ce05fcebc14bc::t_3c7173d4ed6701 1-44
+backend/tests/fixtures/netcad/towers.json
+  s_6ce05fcebc14bc::t_3c7173d4ed6701 1-46
+docs/ip2/README.md
+  s_6ce05fcebc14bc::t_19938197044dc2 22-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "483d1f97d50a9ce293dc7535e3a916e87444fa34",
+  "prompts": {},
+  "sessions": {
+    "s_6ce05fcebc14bc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43cf463e-6df3-45f9-8b53-d9bd58ba0526",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
