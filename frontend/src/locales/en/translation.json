@@ -5,7 +5,8 @@
     "search": "Search",
     "expand": "Expand",
     "collapse": "Collapse",
-    "graphView": "Graph View"
+    "graphView": "Graph View",
+    "simulation": "Simulation"
   },
   "navbar": {
     "appName": "IoDT2 Demo",
@@ -294,5 +295,31 @@
     "fullyCompatible": "Thing is fully compatible with selected DTDL interface",
     "matchedTelemetry": "Matched Telemetry",
     "missingTelemetry": "Missing Telemetry"
+  },
+  "simulation": {
+    "title": "Hazard Simulation",
+    "subtitle": "The partner platform computes the shaking. The twin graph works out what stops working because of it.",
+    "scenario": "Scenario",
+    "scenarioHint": "Epicentre, magnitude, and how far around it to look for twins.",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "magnitude": "Magnitude",
+    "depth": "Depth (km)",
+    "radius": "Radius (km)",
+    "tenant": "Tenant",
+    "applyStatus": "Degrade relationships",
+    "applyStatusHint": "Writes ts:Degraded onto the affected relationships in the live graph.",
+    "run": "Run scenario",
+    "recentEvents": "Recent earthquakes",
+    "recentEventsHint": "Read straight from the partner feed. Nothing is stored — pick one to start a scenario from something that really happened.",
+    "directDamage": "Direct damage",
+    "subjectsSent": "twins were sent to the partner model",
+    "noDamage": "No twin was affected.",
+    "failed": "out of service",
+    "knockOn": "Knock-on effects",
+    "knockOnHint": "Twins that were not shaken but lose their function through the graph.",
+    "noKnockOn": "Nothing else depends on what failed.",
+    "degraded": "relationships degraded",
+    "hops": "hop(s)"
   }
 }

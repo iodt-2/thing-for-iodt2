@@ -11,6 +11,7 @@ docs/ip2/2026-08-dis-sistem-entegrasyonu.md.
 """
 
 import logging
+from dataclasses import asdict
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Path, Query, status
@@ -69,6 +70,43 @@ async def provider_health(
         ) from exc
 
     return {"provider": provider.key, "base_url": provider.base_url, "upstream": upstream}
+
+
+@router.get(
+    "/{provider_key}/events",
+    summary="Recent real-world events from a provider",
+    description=(
+        "Read-through feed, nothing is stored. An earthquake is an event, not "
+        "a thing, and gets no twin — the feed exists so a simulation can be "
+        "started from something that actually happened."
+    ),
+)
+async def provider_events(
+    provider_key: str = Path(..., description="Provider key, e.g. 'netcad'"),
+    days: int = Query(7, ge=1, le=365, description="How far back to look"),
+    min_magnitude: float = Query(3.0, ge=0, le=10),
+) -> Dict[str, Any]:
+    provider = _provider_or_404(provider_key)
+    if not provider.supports_events:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provider '{provider.key}' offers no event feed",
+        )
+
+    try:
+        events = await provider.recent_events(days=days, min_magnitude=min_magnitude)
+    except ExternalProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        ) from exc
+
+    return {
+        "provider": provider.key,
+        "days": days,
+        "min_magnitude": min_magnitude,
+        "count": len(events),
+        "events": [asdict(event) for event in events],
+    }
 
 
 @router.post(

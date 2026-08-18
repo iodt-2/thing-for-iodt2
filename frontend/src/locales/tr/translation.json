@@ -5,7 +5,8 @@
     "search": "Ara",
     "expand": "Genişlet",
     "collapse": "Daralt",
-    "graphView": "Grafik Görünümü"
+    "graphView": "Grafik Görünümü",
+    "simulation": "Simülasyon"
   },
   "navbar": {
     "appName": "IoDT2 Demo",
@@ -294,5 +295,31 @@
     "fullyCompatible": "Thing seçili DTDL arayüzü ile tam uyumlu",
     "matchedTelemetry": "Eşleşen Telemetri",
     "missingTelemetry": "Eksik Telemetri"
+  },
+  "simulation": {
+    "title": "Afet Simülasyonu",
+    "subtitle": "Yer hareketini karşı platform hesaplar. Neyin çalışmaz hâle geldiğini ikiz grafı söyler.",
+    "scenario": "Senaryo",
+    "scenarioHint": "Merkez üssü, büyüklük ve çevresinde kaç km'lik alandaki ikizlerin katılacağı.",
+    "latitude": "Enlem",
+    "longitude": "Boylam",
+    "magnitude": "Büyüklük",
+    "depth": "Derinlik (km)",
+    "radius": "Yarıçap (km)",
+    "tenant": "Tenant",
+    "applyStatus": "İlişkileri degrade et",
+    "applyStatusHint": "Etkilenen ilişkilere canlı grafta ts:Degraded yazar.",
+    "run": "Senaryoyu çalıştır",
+    "recentEvents": "Son depremler",
+    "recentEventsHint": "Doğrudan karşı taraftan okunur, saklanmaz. Gerçekten olmuş bir depremden senaryo başlatmak için birini seçin.",
+    "directDamage": "Doğrudan hasar",
+    "subjectsSent": "ikiz karşı tarafın modeline gönderildi",
+    "noDamage": "Etkilenen ikiz yok.",
+    "failed": "devre dışı",
+    "knockOn": "Zincir etki",
+    "knockOnHint": "Sarsılmadığı hâlde graf üzerinden işlevini yitiren ikizler.",
+    "noKnockOn": "Devre dışı kalanlara bağlı başka bir şey yok.",
+    "degraded": "ilişki degrade edildi",
+    "hops": "adım"
   }
 }

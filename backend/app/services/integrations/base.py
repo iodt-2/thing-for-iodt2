@@ -122,6 +122,66 @@ class ExternalThing:
 
 
 @dataclass(frozen=True)
+class HazardScenario:
+    """What to simulate: an epicentre and how hard it shakes."""
+
+    latitude: float
+    longitude: float
+    magnitude: float
+    depth_km: float = 10.0
+    hazard: str = "earthquake"
+
+
+@dataclass(frozen=True)
+class ImpactSubject:
+    """One of our twins, offered to a partner's hazard model."""
+
+    name: str
+    latitude: float
+    longitude: float
+    structure_type: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class DirectImpact:
+    """What the partner computed for one subject."""
+
+    name: str
+    severity: float
+    damage_state: Optional[str] = None
+    pga: Optional[float] = None
+    distance_km: Optional[float] = None
+    casualties: Optional[float] = None
+    economic_loss: Optional[float] = None
+
+
+@dataclass
+class SimulationOutcome:
+    """A partner simulation, as we understood it."""
+
+    run_id: str
+    provider: str
+    scenario: HazardScenario
+    impacts: List[DirectImpact] = field(default_factory=list)
+    summary: Dict[str, Any] = field(default_factory=dict)
+    source_url: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ExternalEvent:
+    """A real-world event a partner reports. Not a thing — nothing is stored."""
+
+    id: str
+    time: Optional[str]
+    latitude: Optional[float]
+    longitude: Optional[float]
+    magnitude: Optional[float] = None
+    depth_km: Optional[float] = None
+    place: Optional[str] = None
+    source: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class DatasetSpec:
     """One importable collection offered by a provider."""
 
@@ -169,6 +229,28 @@ class ExternalProvider(ABC):
         """Turn a raw payload into things. Pure — no I/O, so it stays testable."""
 
     # ------------------------------------------------------------------
+    # Optional capabilities
+    # ------------------------------------------------------------------
+    # Not every partner offers these. A provider that does sets the flag and
+    # implements the method; callers check the flag rather than catching
+    # NotImplementedError, so an unsupported request answers cleanly.
+
+    supports_simulation: bool = False
+    supports_events: bool = False
+
+    async def simulate(
+        self, scenario: "HazardScenario", subjects: List["ImpactSubject"]
+    ) -> "SimulationOutcome":
+        """Run the partner's hazard model over our twins."""
+        raise NotImplementedError(f"{self.key} does not offer simulation")
+
+    async def recent_events(
+        self, days: int = 7, min_magnitude: float = 3.0
+    ) -> List["ExternalEvent"]:
+        """Real events the partner has seen recently."""
+        raise NotImplementedError(f"{self.key} does not offer an event feed")
+
+    # ------------------------------------------------------------------
     # Shared helpers
     # ------------------------------------------------------------------
 
@@ -201,13 +283,38 @@ class ExternalProvider(ABC):
         except ValueError as exc:
             raise ExternalProviderError(f"{self.key}: {url} returned invalid JSON") from exc
 
+    async def post_json(self, path: str, body: Dict[str, Any]) -> Any:
+        """POST one JSON document to the partner API and read the answer."""
+        url = f"{self.base_url}{path}"
+        timeout = settings.EXTERNAL_API_TIMEOUT
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=body)
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPStatusError as exc:
+            raise ExternalProviderError(
+                f"{self.key}: {url} answered {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise ExternalProviderError(f"{self.key}: {url} unreachable — {exc}") from exc
+        except ValueError as exc:
+            raise ExternalProviderError(f"{self.key}: {url} returned invalid JSON") from exc
+
     def describe(self) -> Dict[str, Any]:
         """Provider summary for the REST layer."""
+        capabilities = ["import"]
+        if self.supports_simulation:
+            capabilities.append("simulation")
+        if self.supports_events:
+            capabilities.append("events")
+
         return {
             "key": self.key,
             "title": self.title,
             "base_url": self.base_url,
             "default_tenant": self.default_tenant,
+            "capabilities": capabilities,
             "datasets": [
                 {
                     "key": spec.key,
@@ -252,6 +359,11 @@ __all__ = [
     "ExternalAttribute",
     "ExternalLink",
     "DatasetSpec",
+    "HazardScenario",
+    "ImpactSubject",
+    "DirectImpact",
+    "SimulationOutcome",
+    "ExternalEvent",
     "slugify",
     "twin_name",
     "first_value",

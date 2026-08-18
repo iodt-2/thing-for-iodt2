@@ -4,7 +4,7 @@
 **Dilim teması:** Platform, IoDT2 içindeki diğer kurumların servislerinden veri
 alır ve kendi verisini onlara verir. Her karşı taraf **bir adaptör**, çekirdek
 kod sağlayıcıdan bağımsız kalır.
-**Durum:** 🟡 Faz 1 geliştiriliyor (`feat/external-integration-phase1`)
+**Durum:** 🟡 Faz 1 ve Faz 2 tamam (`feat/external-integration-phase1`)
 
 ---
 
@@ -225,13 +225,102 @@ POST /api/v2/scenarios/{id}/simulate
   6. sonuç raporu
 ```
 
-| # | İş |
-|---|---|
-| N10 | Simülasyon istemcisi + istek gövdesi eşlemesi |
-| N11 | Hasar sonucu → property / ilişki durumu yazımı (`ts:Degraded` vokabüleri zaten var) |
-| N12 | Yayılım algoritması — SPARQL ile ilişki zinciri; derinlik sınırı ve döngü koruması şart |
-| N13 | Gerçek deprem akışı (`/earthquakes/real`) → olay beslemesi |
-| N14 | Frontend — senaryo sonucu paneli, grafta degraded kenar vurgusu |
+| # | İş | Durum |
+|---|---|---|
+| N10 | Simülasyon istemcisi + istek gövdesi eşlemesi | ✅ |
+| N11 | Hasar sonucu → çalıştırma grafı + opsiyonel `ts:Degraded` | ✅ |
+| N12 | Yayılım algoritması — derinlik sınırı, sönümleme, döngü koruması | ✅ |
+| N13 | Gerçek deprem akışı (`/earthquakes/real`) → olay beslemesi | ✅ |
+| N14 | Frontend — senaryo paneli, doğrudan hasar + zincir etki listesi | ✅ |
+
+### Karşı tarafın simülasyon şeması (canlı uçtan çıkarıldı)
+
+`POST /simulation/earthquake` — gövde:
+
+```json
+{ "epicenter_lat": 40.98, "epicenter_lon": 29.03, "magnitude": 6.5, "depth": 10,
+  "buildings": [ { "building_id": "...", "latitude": 0, "longitude": 0, "building_type": "RC_Mid" } ] }
+```
+
+Kritik nokta: **`buildings` dizisini biz dolduruyoruz**. Twin'lerimizi kendi
+interface adlarıyla gönderiyoruz, hasar da o adlarla geri geliyor — sonradan
+koordinat eşleştirmeye gerek kalmıyor. Yanıt: `building_damages[]` içinde
+`damage_state`, `damage_probability`, `pga`, `distance_km`, `casualties`,
+`economic_loss`.
+
+`epicenter_lat`/`epicenter_lon` dışındaki adlandırmalar (`latitude`, `epicenter{}`)
+reddediliyor — şema deneyerek bulundu, `docs/ip2/netcad-samples/` altındaki
+örnekler bunun kaydı.
+
+### Zincir etki — yön nereden geliyor
+
+Yayılım yönü kodda sabit değil, ontolojide: yeni `ts:impactDirection`.
+Mevcut `ts:propagationDirection`'dan **kasıtlı olarak ayrı**, çünkü o bir arayüz
+ipucu (kenar hangi yöne akar) ve iki soru aynı değil:
+
+| Tip | Okunuş | Arıza yönü |
+|---|---|---|
+| `feeds` | kaynak besler | kaynak → hedef (besleme kesilir) |
+| `controls` | kaynak yönetir | kaynak → hedef (yöneten gider) |
+| `contains` | kaynak içerir | çift yönlü |
+| `monitors` | kaynak izler | hedef → kaynak (**izlenen giderse izleyen körelir**) |
+| `dependsOn` | kaynak muhtaç | hedef → kaynak (muhtaç olunan gider) |
+
+Yeni bir ilişki tipi eklemek, onu otomatik olarak etki analizine dahil eder —
+algoritmaya dokunmak gerekmez.
+
+Algoritma `app/core/propagation.py` içinde saf fonksiyon: BFS, hop başına
+sönümleme (varsayılan 0.6), derinlik sınırı (3), döngü koruması, `ts:Inactive`
+ilişkiler taşımaz, en güçlü yol kazanır.
+
+### Çıktılar
+
+```
+POST /api/v2/simulation/{provider}/earthquake
+GET  /api/v2/simulation/runs?tenant=
+GET  /api/v2/simulation/runs/{run_id}?tenant=
+GET  /api/v2/integrations/{provider}/events?days=&min_magnitude=
+```
+
+Frontend: `/simulation` sayfası — senaryo formu, gerçek deprem listesinden
+seçim, doğrudan hasar ve zincir etki panelleri.
+
+**Ontoloji 2.1.0 → 2.2.0:** `ts:SimulationRun`, `ts:Impact`, `ts:ImpactKind`
+(`ts:DirectImpact` / `ts:PropagatedImpact`), `ts:severity`, `ts:damageState`,
+`ts:peakGroundAcceleration`, `ts:distanceKm`, `ts:propagationDepth`,
+`ts:propagatedFrom`, `ts:viaRelationshipType`, `ts:impactDirection`.
+
+### İki tasarım kararı
+
+**Çalıştırma kendi grafına yazılır** — `http://twin.io/graphs/{tenant}/simulation/{run_id}`.
+Twin graflarına dokunulmaz. Store bir named graph'ı bütünüyle değiştirdiği için
+bir varsayım senaryosunun envanteri ezmesi kabul edilemez; ayrıca böylece
+çalıştırma geçmişi birikiyor.
+
+**İlişki degrade etmek opsiyonel** — `apply_status=true` (varsayılan kapalı).
+Açıldığında etkilenen ilişkiler `ts:Degraded` olur; silme değil durum değiştirme,
+mevcut kuralla aynı.
+
+### Doğrulama
+
+- 36 yeni test (16 yayılım + 20 simülasyon), toplam **285 test geçiyor**
+- Canlı çalıştırma: M6.8 Kadıköy senaryosu, 3 twin gönderildi, hasar geri alındı
+- **Fuseki'ye uçtan uca yazma hâlâ denenmedi** — Docker Desktop kapalı
+
+### Karşı tarafın modeli hakkında not
+
+Sonuçlar mühendislik çıktısı gibi kullanılmamalı. Merkez üssüne yakın her şey
+`pga 2.0` / `Complete` olarak doyuma ulaşıyor, 186 km uzaktaki bir yapı için
+M6.8'de `Extensive` dönüyor. Sıralama olarak anlamlı, mutlak değer olarak değil.
+Adaptör bunu olduğu gibi aktarıyor, düzeltmiyor — düzeltmek sessizce başka bir
+model uydurmak olurdu.
+
+### Faz 2'ye alınmayanlar
+
+`POST /scenarios/run` **karşı tarafta kayıt oluşturuyor** (kendi senaryo
+listelerine yazıyor). Yani okuma değil yazma; dışa veri gönderme faz'ı olan
+Faz 4'e ait. Faz 2 yalnızca `POST /simulation/earthquake` kullanıyor — o
+tarafta hiçbir şey bırakmıyor.
 
 ---
 

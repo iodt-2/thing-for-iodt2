@@ -20,10 +20,15 @@ from app.core.config import get_settings
 
 from .base import (
     DatasetSpec,
+    DirectImpact,
     ExternalAttribute,
+    ExternalEvent,
     ExternalLink,
     ExternalProvider,
     ExternalThing,
+    HazardScenario,
+    ImpactSubject,
+    SimulationOutcome,
     as_float,
     first_value,
     slugify,
@@ -38,6 +43,21 @@ TOWERS_PATH = "/telecom/towers"
 BUILDINGS_PATH = "/buildings/inventory"
 RISK_PATH = "/risk/assessment"
 HEALTH_PATH = "/system/health"
+SIMULATION_PATH = "/simulation/earthquake"
+EVENTS_PATH = "/earthquakes/real"
+
+# Damage classes the service reports, as a 0..1 loss of function. Their exact
+# wording is kept alongside the number rather than replaced by it, so the
+# partner's own vocabulary stays quotable.
+DAMAGE_SEVERITY = {
+    "none": 0.0,
+    "slight": 0.25,
+    "light": 0.25,
+    "moderate": 0.5,
+    "extensive": 0.75,
+    "severe": 0.75,
+    "complete": 1.0,
+}
 
 
 class NetcadProvider(ExternalProvider):
@@ -46,6 +66,8 @@ class NetcadProvider(ExternalProvider):
     key = "netcad"
     title = "NETCAD Deprem Dijital İkizi"
     default_tenant = "netcad"
+    supports_simulation = True
+    supports_events = True
 
     _DATASETS = {
         "towers": DatasetSpec(
@@ -269,6 +291,133 @@ class NetcadProvider(ExternalProvider):
             )
 
         return things
+
+
+    # ------------------------------------------------------------------
+    # Simulation
+    # ------------------------------------------------------------------
+
+    async def simulate(
+        self, scenario: HazardScenario, subjects: List[ImpactSubject]
+    ) -> SimulationOutcome:
+        """
+        Ground motion and damage for our twins, computed by NETCAD.
+
+        Our twins travel in the request as `buildings`, identified by their
+        own interface names, so the damage comes back already keyed to the
+        graph — no fuzzy matching on coordinates afterwards.
+
+        The service saturates near the epicentre (pga is capped and everything
+        inside a few kilometres comes back "Complete"), so the numbers are
+        treated as a hazard ranking, not as engineering output.
+        """
+        body = {
+            "epicenter_lat": scenario.latitude,
+            "epicenter_lon": scenario.longitude,
+            "magnitude": scenario.magnitude,
+            "depth": scenario.depth_km,
+            "buildings": [
+                {
+                    "building_id": subject.name,
+                    "latitude": subject.latitude,
+                    "longitude": subject.longitude,
+                    "building_type": subject.structure_type or "RC_Mid",
+                }
+                for subject in subjects
+            ],
+        }
+
+        payload = await self.post_json(SIMULATION_PATH, body) or {}
+        if payload.get("error"):
+            from .base import ExternalProviderError
+
+            raise ExternalProviderError(f"{self.key}: simulation refused — {payload['error']}")
+
+        impacts = []
+        for record in payload.get("building_damages", []) or []:
+            name = first_value(record, "building_id")
+            if not name:
+                continue
+            impacts.append(
+                DirectImpact(
+                    name=str(name),
+                    severity=_severity(record),
+                    damage_state=first_value(record, "damage_state"),
+                    pga=as_float(first_value(record, "pga")),
+                    distance_km=as_float(first_value(record, "distance_km")),
+                    casualties=as_float(first_value(record, "casualties")),
+                    economic_loss=as_float(first_value(record, "economic_loss")),
+                )
+            )
+
+        return SimulationOutcome(
+            run_id=str(payload.get("simulation_id") or ""),
+            provider=self.key,
+            scenario=scenario,
+            impacts=impacts,
+            summary=payload.get("summary") or {},
+            source_url=f"{self.base_url}{SIMULATION_PATH}",
+        )
+
+    # ------------------------------------------------------------------
+    # Event feed
+    # ------------------------------------------------------------------
+
+    async def recent_events(
+        self, days: int = 7, min_magnitude: float = 3.0
+    ) -> List[ExternalEvent]:
+        """
+        Recent earthquakes, as reported to NETCAD by AFAD.
+
+        Read-through only. An earthquake is not a thing and gets no twin; the
+        feed exists so a scenario can be started from something that really
+        happened.
+        """
+        payload = await self.get_json(
+            EVENTS_PATH, {"days": days, "min_mag": min_magnitude}
+        )
+
+        events = []
+        for record in (payload or {}).get("earthquakes", []) or []:
+            identifier = first_value(record, "id")
+            if not identifier:
+                continue
+            events.append(
+                ExternalEvent(
+                    id=str(identifier),
+                    time=first_value(record, "time"),
+                    latitude=as_float(first_value(record, "latitude", "lat")),
+                    longitude=as_float(first_value(record, "longitude", "lon")),
+                    magnitude=as_float(first_value(record, "magnitude", "mag")),
+                    depth_km=as_float(first_value(record, "depth")),
+                    place=first_value(record, "location", "place"),
+                    source=first_value(record, "source"),
+                )
+            )
+
+        return events
+
+
+def _severity(record: Dict[str, Any]) -> float:
+    """
+    Loss of function from a damage record, 0..1.
+
+    The named damage state is trusted first: it is the model's own judgement.
+    Damage probability only stands in when the state is missing or unfamiliar,
+    because a probability of collapse is not the same quantity as a degree of
+    damage and swapping them silently would overstate mild shaking.
+    """
+    state = first_value(record, "damage_state")
+    if state is not None:
+        severity = DAMAGE_SEVERITY.get(str(state).strip().lower())
+        if severity is not None:
+            return severity
+
+    probability = as_float(first_value(record, "damage_probability"))
+    if probability is not None:
+        return max(0.0, min(1.0, probability))
+
+    return 0.0
 
 
 def _children_by_district(

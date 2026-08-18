@@ -4,6 +4,7 @@ import {
   Plus,
   Search,
   Network,
+  Zap,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -42,6 +43,11 @@ const Sidebar = () => {
       name: t('sidebar.graphView') || 'Graph View',
       path: "/things/graph",
       icon: Network
+    },
+    {
+      name: t('sidebar.simulation') || 'Simulation',
+      path: "/simulation",
+      icon: Zap
     },
   ];
 
