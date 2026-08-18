@@ -4,7 +4,7 @@
 **Dilim teması:** Platform, IoDT2 içindeki diğer kurumların servislerinden veri
 alır ve kendi verisini onlara verir. Her karşı taraf **bir adaptör**, çekirdek
 kod sağlayıcıdan bağımsız kalır.
-**Durum:** 🟡 Faz 1 ve Faz 2 tamam (`feat/external-integration-phase1`)
+**Durum:** 🟡 Faz 1 ve Faz 2 tamam, canlı Fuseki üzerinde doğrulandı (`feat/external-integration-phase1`)
 
 ---
 
@@ -160,6 +160,14 @@ tarafından otomatik yazılır — elle eklenmez.
 - **Karşı taraf şeması sözleşmeli değil.** Alan adları haber verilmeden
   değişebilir. Eşleme savunmacı; testler `docs/ip2/netcad-samples/` altındaki
   gerçek yanıtlara bağlı, şema kayarsa test kırılır.
+- **Karşı tarafın verisi çağrı başına değişiyor.** ⚠ Canlı testte tespit edildi:
+  `"source": "Fallback Data"` modundayken **aynı `tower_id` her istekte farklı
+  `height` ve farklı koordinat** döndürüyor (örn. fallback_1 için 74 m /
+  41.0253 ve 144 m / 40.9957 arka arkaya iki çağrıda). Sonuçları:
+  içerik hash'i hiçbir zaman tutmaz — her import yeniden yazar; ve içe alınan
+  twin'ler her seferinde yer değiştirir. Bizim tarafta hata yok, ama **periyodik
+  senkron (Faz 5) bu düzelmeden anlamsız**. NETCAD'e sorulacak: OSM modu
+  açıldığında id ve koordinatlar sabitlenecek mi?
 
 **Faz 1 çıktısı:** dış envanterle dolu `netcad` tenant'ı; Graph View,
 `/discovery/nearby` ve `/discovery/capabilities` üzerinde çalışır durumda.
@@ -306,6 +314,46 @@ mevcut kuralla aynı.
 - 36 yeni test (16 yayılım + 20 simülasyon), toplam **285 test geçiyor**
 - Canlı çalıştırma: M6.8 Kadıköy senaryosu, 3 twin gönderildi, hasar geri alındı
 - **Fuseki'ye uçtan uca yazma hâlâ denenmedi** — Docker Desktop kapalı
+
+### Canlı doğrulama (Docker + Fuseki, 18 Ağustos 2026)
+
+Faz 1 ve Faz 2, çalışan yığın üzerinde uçtan uca koşturuldu.
+
+**Import zinciri** — `buildings` 30, `towers` 30, `districts` 3 → toplam 63 twin,
+`netcad` tenant'ında, `failed=0`. `districts` 22 ilişkiyi düşürdü: `limit=30`
+yüzünden çocukların bir kısmı hiç içe alınmamıştı; beklenen davranış, sayaçta
+raporlandı.
+
+Köken ve attribute triple'ları gerçek Fuseki'de doğrulandı:
+`ts:externalSource "netcad"`, `ts:externalId "fallback_1"` ve altı attribute
+(`operator`, `towerType`, `district`, `height`, `osmId`, `dataSource`).
+
+**Zincir etki** — Kadıköy demo tenant'ında 0.3 km yarıçapla M6.2:
+
+```
+doğrudan hasar    iodt2-seismic-sensor-1        1.0   Complete
+                  iodt2-temp-sensor-hospital    1.0   Complete
+
+zincir etki       iodt2-weather-station-1       0.60  1 adım  ← feeds
+                  iodt2-base-station-1          0.36  2 adım  ← monitors
+                  iodt2-kadikoy-monitoring-...  0.36  2 adım  ← contains
+                  iodt2-bagdat-avenue           0.216 3 adım  ← contains
+                  iodt2-kadikoy-hospital        0.216 3 adım  ← contains
+```
+
+İki twin sarsıldı, beş twin işlevini yitirdi. `monitors` üzerinden yayılım
+ters yönde ilerledi — izlenen istasyon gittiği için izleyen körelmiş durumda.
+Bu, yer hareketi modelinin tek başına veremeyeceği cevap.
+
+**Kalıcılık ve okuma** — çalıştırma `http://twin.io/graphs/default/simulation/sim_1787058797`
+grafına yazıldı, `GET /simulation/runs` ve `runs/{id}` üzerinden Fuseki'den geri
+okundu (7 impact düğümü).
+
+**`apply_status`** — `netcad` tenant'ında açıldı: 38 ilişki `ts:Degraded` oldu.
+`default` tenant'ında sayaç 0 kaldı; tenant izolasyonu tuttu.
+
+**Regresyon** — `/things` (63), `/discovery/nearby`, `/.well-known/wot`,
+`/api/v2/ontology` (v2.2.0) sağlam.
 
 ### Karşı tarafın modeli hakkında not
 
