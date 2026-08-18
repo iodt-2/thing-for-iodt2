@@ -55,7 +55,7 @@ SCHEMA = Namespace("https://schema.org/")          # Product metadata
 
 # The ontology resource itself (namespace URI without the trailing '#')
 ONTOLOGY_URI = URIRef("http://twin.dtd/ontology")
-ONTOLOGY_VERSION = "2.0.0"
+ONTOLOGY_VERSION = "2.1.0"
 
 
 # ============================================================================
@@ -168,6 +168,15 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.InstanceRelationship, RDFS.label, Literal("Instance Relationship", lang="en")))
     g.add((TWIN.InstanceRelationship, RDFS.comment,
            Literal("A relationship between twin instances", lang="en")))
+
+    # Attribute Class
+    g.add((TWIN.Attribute, RDF.type, RDFS.Class))
+    g.add((TWIN.Attribute, RDFS.label, Literal("Attribute", lang="en")))
+    g.add((TWIN.Attribute, RDFS.comment, Literal(
+        "A static, factual value carried by a twin, such as an operator name "
+        "or a structural height. Distinct from ts:Property, which declares the "
+        "schema of a value the twin reports but does not hold the value itself. "
+        "Attributes typically originate from an external inventory.", lang="en")))
 
     # ========================================================================
     # Properties - Interface Structure
@@ -456,6 +465,75 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.dtdlCategory, RDFS.range, XSD.string))
 
     # ========================================================================
+    # Properties - Attribute values
+    # ========================================================================
+
+    # hasAttribute
+    g.add((TWIN.hasAttribute, RDF.type, RDF.Property))
+    g.add((TWIN.hasAttribute, RDFS.label, Literal("has attribute", lang="en")))
+    g.add((TWIN.hasAttribute, RDFS.comment,
+           Literal("Links a twin to a static attribute value it carries", lang="en")))
+    g.add((TWIN.hasAttribute, RDFS.range, TWIN.Attribute))
+
+    # attributeName
+    g.add((TWIN.attributeName, RDF.type, RDF.Property))
+    g.add((TWIN.attributeName, RDFS.label, Literal("attribute name", lang="en")))
+    g.add((TWIN.attributeName, RDFS.domain, TWIN.Attribute))
+    g.add((TWIN.attributeName, RDFS.range, XSD.string))
+
+    # attributeValue
+    g.add((TWIN.attributeValue, RDF.type, RDF.Property))
+    g.add((TWIN.attributeValue, RDFS.label, Literal("attribute value", lang="en")))
+    g.add((TWIN.attributeValue, RDFS.comment, Literal(
+        "The value itself. Numeric values are typed xsd:decimal so they can be "
+        "compared in SPARQL; everything else stays a plain literal.", lang="en")))
+    g.add((TWIN.attributeValue, RDFS.domain, TWIN.Attribute))
+
+    # ========================================================================
+    # Properties - External provenance
+    # ========================================================================
+    # Twins imported from another organisation's service must say so. Without
+    # this, a federated graph cannot tell what it owns from what it mirrored,
+    # and a refresh cannot know what it is allowed to replace.
+
+    # externalSource
+    g.add((TWIN.externalSource, RDF.type, RDF.Property))
+    g.add((TWIN.externalSource, RDFS.label, Literal("external source", lang="en")))
+    g.add((TWIN.externalSource, RDFS.comment,
+           Literal("Key of the external provider this twin was imported from", lang="en")))
+    g.add((TWIN.externalSource, RDFS.range, XSD.string))
+
+    # externalId
+    g.add((TWIN.externalId, RDF.type, RDF.Property))
+    g.add((TWIN.externalId, RDFS.label, Literal("external ID", lang="en")))
+    g.add((TWIN.externalId, RDFS.comment,
+           Literal("Identifier this record carries in the source system", lang="en")))
+    g.add((TWIN.externalId, RDFS.range, XSD.string))
+
+    # externalUrl
+    g.add((TWIN.externalUrl, RDF.type, RDF.Property))
+    g.add((TWIN.externalUrl, RDFS.label, Literal("external URL", lang="en")))
+    g.add((TWIN.externalUrl, RDFS.comment,
+           Literal("Endpoint the record was retrieved from", lang="en")))
+    g.add((TWIN.externalUrl, RDFS.range, XSD.anyURI))
+
+    # fetchedAt
+    g.add((TWIN.fetchedAt, RDF.type, RDF.Property))
+    g.add((TWIN.fetchedAt, RDFS.label, Literal("fetched at", lang="en")))
+    g.add((TWIN.fetchedAt, RDFS.comment,
+           Literal("When the external record was last retrieved", lang="en")))
+    g.add((TWIN.fetchedAt, RDFS.range, XSD.dateTime))
+
+    # contentHash
+    g.add((TWIN.contentHash, RDF.type, RDF.Property))
+    g.add((TWIN.contentHash, RDFS.label, Literal("content hash", lang="en")))
+    g.add((TWIN.contentHash, RDFS.comment, Literal(
+        "Hash of the mapped source record. An import compares it before "
+        "writing, so an unchanged record does not replace its named graph.",
+        lang="en")))
+    g.add((TWIN.contentHash, RDFS.range, XSD.string))
+
+    # ========================================================================
     # Alignment — W3C SSN/SOSA, schema.org, QUDT
     # ========================================================================
     # A consumer that knows SSN/SOSA but not ts: must still be able to read the
@@ -466,7 +544,7 @@ def get_twin_ontology() -> Graph:
     # Declare ts: classes as OWL classes too, so OWL tooling picks them up
     for cls in (TWIN.TwinInterface, TWIN.TwinInstance, TWIN.Property,
                 TWIN.Relationship, TWIN.Command, TWIN.InstanceRelationship,
-                TWIN.RelationshipType, TWIN.RelationshipStatus):
+                TWIN.RelationshipType, TWIN.RelationshipStatus, TWIN.Attribute):
         g.add((cls, RDF.type, OWL.Class))
 
     # TwinInterface / TwinInstance -> ssn:System
@@ -640,6 +718,11 @@ def create_command_uri(interface_name: str, command_name: str) -> URIRef:
     return URIRef(f"{TWIN_DATA}{interface_name}/command/{command_name}")
 
 
+def create_attribute_uri(subject_name: str, attribute_name: str) -> URIRef:
+    """Create URI for an Attribute value node"""
+    return URIRef(f"{TWIN_DATA}{subject_name}/attribute/{attribute_name}")
+
+
 # Location keys as they appear in YAML metadata.annotations, mapped to the
 # W3C Basic Geo predicate they become. Bounds are checked where meaningful.
 _LOCATION_PREDICATES = (
@@ -704,6 +787,105 @@ def add_location_triples(
     return added
 
 
+# Provenance keys as they appear in YAML metadata.annotations, mapped to the
+# predicate they become. Written by the external-integration importer; a twin
+# created through the form carries none of them.
+_PROVENANCE_PREDICATES = (
+    ("external-source", TWIN.externalSource, None),
+    ("external-id", TWIN.externalId, None),
+    ("external-url", TWIN.externalUrl, XSD.anyURI),
+    ("fetched-at", TWIN.fetchedAt, XSD.dateTime),
+    ("content-hash", TWIN.contentHash, None),
+)
+
+# Prefix marking an attribute value in metadata.annotations, e.g. attr-operator.
+ATTRIBUTE_PREFIX = "attr-"
+ATTRIBUTE_UNIT_SUFFIX = "-unit"
+
+
+def add_provenance_triples(
+    graph: Graph,
+    subject_uri: URIRef,
+    annotations: Optional[Dict[str, Any]],
+) -> bool:
+    """
+    Write external-provenance triples for an imported twin.
+
+    Shared by every writer so an imported twin says where it came from no
+    matter which code path stored it.
+
+    Returns:
+        bool: True if at least one provenance triple was added
+    """
+    if not annotations:
+        return False
+
+    added = False
+    for key, predicate, datatype in _PROVENANCE_PREDICATES:
+        raw = annotations.get(key)
+        if raw is None or raw == "":
+            continue
+        literal = Literal(str(raw), datatype=datatype) if datatype else Literal(str(raw))
+        graph.add((subject_uri, predicate, literal))
+        added = True
+
+    return added
+
+
+def add_attribute_triples(
+    graph: Graph,
+    subject_uri: URIRef,
+    subject_name: str,
+    annotations: Optional[Dict[str, Any]],
+) -> int:
+    """
+    Write ts:Attribute nodes for the static values carried in annotations.
+
+    An attribute is a fact the twin holds (operator name, structural height),
+    not a schema declaration — ts:Property covers the latter and deliberately
+    has no value slot.
+
+    Keys look like `attr-<name>`; an optional `attr-<name>-unit` names the unit
+    of the value next to it.
+
+    Returns:
+        int: number of attributes written
+    """
+    if not annotations:
+        return 0
+
+    written = 0
+    for key, raw in annotations.items():
+        if not key.startswith(ATTRIBUTE_PREFIX):
+            continue
+        name = key[len(ATTRIBUTE_PREFIX):]
+        if not name or raw is None or raw == "":
+            continue
+        # A `-unit` key belongs to the attribute beside it, not to one of its own
+        if name.endswith(ATTRIBUTE_UNIT_SUFFIX) and key[: -len(ATTRIBUTE_UNIT_SUFFIX)] in annotations:
+            continue
+
+        attribute_uri = create_attribute_uri(subject_name, name)
+        graph.add((attribute_uri, RDF.type, TWIN.Attribute))
+        graph.add((attribute_uri, TWIN.attributeName, Literal(name)))
+
+        # Numeric values are typed so SPARQL can compare them; text stays plain
+        try:
+            value_literal = Literal(Decimal(str(raw)), datatype=XSD.decimal)
+        except (InvalidOperation, ValueError):
+            value_literal = Literal(str(raw))
+        graph.add((attribute_uri, TWIN.attributeValue, value_literal))
+
+        unit = annotations.get(f"{key}{ATTRIBUTE_UNIT_SUFFIX}")
+        if unit:
+            graph.add((attribute_uri, TWIN.unit, Literal(str(unit))))
+
+        graph.add((subject_uri, TWIN.hasAttribute, attribute_uri))
+        written += 1
+
+    return written
+
+
 # ============================================================================
 # Exports
 # ============================================================================
@@ -726,9 +908,13 @@ __all__ = [
     "get_relationship_types",
     "get_inverse_type_map",
     "add_location_triples",
+    "add_provenance_triples",
+    "add_attribute_triples",
+    "ATTRIBUTE_PREFIX",
     "create_interface_uri",
     "create_instance_uri",
     "create_property_uri",
     "create_relationship_uri",
     "create_command_uri",
+    "create_attribute_uri",
 ]

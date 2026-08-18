@@ -19,7 +19,8 @@ ekler; hedef sistemi daha **stabil** (test + doğrulama + guard) ve daha **dinam
 |----|-------|---------|-------|
 | 2026-06 | Açık Bilgi Modeli temeli + ontoloji dinamikleştirme | [2026-06-acik-bilgi-modeli.md](2026-06-acik-bilgi-modeli.md) | ✅ Tamamlandı |
 | 2026-07 | Discovery Services & SPARQL keşif | [2026-07-discovery-services.md](2026-07-discovery-services.md) | ✅ Tamamlandı |
-| 2026-08+ | Repository olgunluğu, SHACL, dağıtık PoC | [backlog.md](backlog.md) | ⚪ Planlandı |
+| 2026-08 | Dış sistem entegrasyonu — sağlayıcı-agnostik adaptörler | [2026-08-dis-sistem-entegrasyonu.md](2026-08-dis-sistem-entegrasyonu.md) | 🟡 Faz 1 tamam |
+| 2026-09+ | Repository olgunluğu, SHACL, dağıtık PoC | [backlog.md](backlog.md) | ⚪ Planlandı |
 
 ---
 

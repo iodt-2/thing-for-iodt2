@@ -25,7 +25,8 @@ from ..core import (
     TWIN, TWIN_DATA, GEO,
     create_interface_uri, create_instance_uri,
     create_property_uri, create_relationship_uri, create_command_uri,
-    get_twin_ontology, add_location_triples, get_inverse_type_map
+    get_twin_ontology, add_location_triples, get_inverse_type_map,
+    add_provenance_triples, add_attribute_triples,
 )
 from ..core.exceptions import FusekiException
 from ..core.geo import (
@@ -402,6 +403,46 @@ class TwinRDFService:
         except Exception as e:
             logger.warning(f"Failed to check interface existence for '{interface_name}': {e}")
             return False
+
+    async def get_content_hash(
+        self,
+        thing_id: str,
+        tenant_id: str = "default",
+    ) -> Optional[str]:
+        """
+        The ts:contentHash an earlier import left on this thing's graph.
+
+        Used to decide whether a record still matches what is stored. Storing
+        replaces the whole named graph, so an unchanged record is better left
+        untouched than rewritten.
+
+        Args:
+            thing_id: Original thing id, as used in the named graph URI
+            tenant_id: Tenant scope
+
+        Returns:
+            The stored hash, or None when the thing or the hash is absent
+        """
+        graph_uri = f"http://twin.io/graphs/{tenant_id}/{thing_id}"
+        query = f"""
+        PREFIX ts: <{self.TS}>
+
+        SELECT ?hash WHERE {{
+            GRAPH <{graph_uri}> {{
+                ?interface a ts:TwinInterface ;
+                           ts:contentHash ?hash .
+            }}
+        }}
+        LIMIT 1
+        """
+
+        try:
+            results = await self._execute_query(query)
+            rows = self._parse_sparql_results(results)
+            return rows[0]["hash"] if rows else None
+        except Exception as e:
+            logger.warning(f"Failed to read content hash for '{thing_id}': {e}")
+            return None
 
     async def query_instances(
         self,
@@ -1722,6 +1763,9 @@ class TwinRDFService:
                 graph.add((interface_uri, self.TS.dtdlCategory, Literal(annotations["dtdl-category"])))
             # Location (W3C Basic Geo) — makes the twin geographically discoverable
             add_location_triples(graph, interface_uri, annotations)
+            # Where an imported twin came from, and the facts it carries
+            add_provenance_triples(graph, interface_uri, annotations)
+            add_attribute_triples(graph, interface_uri, interface_name, annotations)
 
         spec = interface_data.get("spec", {})
 
@@ -1821,6 +1865,9 @@ class TwinRDFService:
         add_location_triples(
             graph, instance_uri, instance_data["metadata"].get("annotations")
         )
+        instance_annotations = instance_data["metadata"].get("annotations")
+        add_provenance_triples(graph, instance_uri, instance_annotations)
+        add_attribute_triples(graph, instance_uri, instance_name, instance_annotations)
 
         # Instance relationships
         for rel in instance_data["spec"].get("twinInstanceRelationships", []):
