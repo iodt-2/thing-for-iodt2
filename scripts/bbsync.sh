@@ -25,6 +25,10 @@ BB_BRANCH=$(cfg mirror.bitbucketBranch main)
 JIRA_KEY=${MIRROR_JIRA_KEY:-$(cfg mirror.jiraKey '')}
 MODE=$(cfg mirror.mode mirror)          # mirror | snapshot
 ROOT_MSG=$(cfg mirror.initMessage 'Initial import from internal repository')
+# Bitbucket tarafinda kullanilacak kimlik. Bos birakilirsa kaynak commit'in
+# yazari korunur; sunucu hook'u gecerli bir Bitbucket kullanicisi bekliyorsa doldur.
+BB_NAME=$(cfg mirror.authorName '')
+BB_EMAIL=$(cfg mirror.authorEmail '')
 
 BB_REF="refs/mirror/bb/${BB_BRANCH}"    # Bitbucket tarafindaki ayna head'i
 SRC_REF="refs/mirror/src/${SRC_BRANCH}" # en son aynalanan kaynak commit
@@ -76,12 +80,17 @@ make_commit() {
   local args=("$tree")
   if [ -n "$parent" ]; then args+=(-p "$parent"); fi
   if [ -z "$msg" ]; then msg=$(bb_message "$src"); fi
+  local an ae cn ce
+  an=${BB_NAME:-$(git log -1 --pretty=%an "$src")}
+  ae=${BB_EMAIL:-$(git log -1 --pretty=%ae "$src")}
+  cn=${BB_NAME:-$(git log -1 --pretty=%cn "$src")}
+  ce=${BB_EMAIL:-$(git log -1 --pretty=%ce "$src")}
   printf '%s\n' "$msg" | \
-  GIT_AUTHOR_NAME=$(git log -1 --pretty=%an "$src") \
-  GIT_AUTHOR_EMAIL=$(git log -1 --pretty=%ae "$src") \
+  GIT_AUTHOR_NAME="$an" \
+  GIT_AUTHOR_EMAIL="$ae" \
   GIT_AUTHOR_DATE=$(git log -1 --pretty=%aI "$src") \
-  GIT_COMMITTER_NAME=$(git log -1 --pretty=%cn "$src") \
-  GIT_COMMITTER_EMAIL=$(git log -1 --pretty=%ce "$src") \
+  GIT_COMMITTER_NAME="$cn" \
+  GIT_COMMITTER_EMAIL="$ce" \
   GIT_COMMITTER_DATE=$(git log -1 --pretty=%cI "$src") \
     git commit-tree "${args[@]}" -F -
 }
@@ -123,13 +132,12 @@ cmd_init() {
   local head tree root
   head=$(git rev-parse "$SRC_BRANCH")
   tree=$(git rev-parse "${SRC_BRANCH}^{tree}")
-  root=$(GIT_AUTHOR_NAME=$(git log -1 --pretty=%an "$head") \
-         GIT_AUTHOR_EMAIL=$(git log -1 --pretty=%ae "$head") \
-         GIT_COMMITTER_NAME=$(git log -1 --pretty=%cn "$head") \
-         GIT_COMMITTER_EMAIL=$(git log -1 --pretty=%ce "$head") \
-         git commit-tree "$tree" -m "${JIRA_KEY:+$JIRA_KEY }${ROOT_MSG}")
+  root=$(make_commit "$tree" "" "$head" "${JIRA_KEY:+$JIRA_KEY }${ROOT_MSG}")
+  [ -n "$root" ] || die "commit-tree basarisiz oldu."
 
   info "kok commit: ${root:0:8}  (tree: ${tree:0:8}, ${SRC_BRANCH} @ ${head:0:8})"
+  info "yazar: $(git log -1 --pretty='%an <%ae>' "$root")"
+  info "hedef: ${BB_REMOTE}/${BB_BRANCH}"
   git push "$BB_REMOTE" "${root}:refs/heads/${BB_BRANCH}"
   git update-ref "$BB_REF" "$root"
   git update-ref "$SRC_REF" "$head"
@@ -224,7 +232,8 @@ cmd_rebuild() {
   git update-ref -d "$SRC_REF" 2>/dev/null || true
   head=$(git rev-parse "$SRC_BRANCH")
   tree=$(git rev-parse "${SRC_BRANCH}^{tree}")
-  root=$(git commit-tree "$tree" -m "${JIRA_KEY:+$JIRA_KEY }${ROOT_MSG}")
+  root=$(make_commit "$tree" "" "$head" "${JIRA_KEY:+$JIRA_KEY }${ROOT_MSG}")
+  [ -n "$root" ] || die "commit-tree basarisiz oldu."
   git push --force "$BB_REMOTE" "${root}:refs/heads/${BB_BRANCH}"
   git update-ref "$BB_REF" "$root"
   git update-ref "$SRC_REF" "$head"

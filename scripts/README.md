@@ -38,7 +38,15 @@ scripts/bbsync.sh setup IODT-123   # anahtar varsa mesajlara eklenir
 # 3. Geçmiş tutulmayacaksa snapshot modu (bu projenin tercihi)
 git config mirror.mode snapshot
 
-# 4. Bitbucket trunk'ını tek commit ile başlat  (Bitbucket repo BOŞ olmalı)
+# 4. Bitbucket'ın varsayılan branch'i master
+git config mirror.bitbucketBranch master
+
+# 5. Bitbucket kimliği — sunucu commit e-postasının geçerli bir Bitbucket
+#    kullanıcısı olmasını isteyebilir. Boş bırakılırsa GitHub yazarı korunur.
+git config mirror.authorName  "Hayri Can AKYILDIRIM"
+git config mirror.authorEmail "cakyildirim@innova.com.tr"
+
+# 6. Bitbucket trunk'ını tek commit ile başlat  (Bitbucket repo BOŞ olmalı)
 scripts/bbsync.sh init
 ```
 
@@ -108,7 +116,9 @@ Tek seferlik geçersiz kılma: `MIRROR_JIRA_KEY=IODT-789 scripts/bbsync.sh push`
 | `mirror.githubRemote`     | `origin`    | Kaynak remote                               |
 | `mirror.bitbucketRemote`  | `bitbucket` | Hedef remote                                |
 | `mirror.sourceBranch`     | `main`      | Aynalanan yerel branch                      |
-| `mirror.bitbucketBranch`  | `main`      | Bitbucket'taki hedef branch                 |
+| `mirror.bitbucketBranch`  | `main`      | Bitbucket'taki hedef branch (bu repoda `master`) |
+| `mirror.authorName`       | —           | Bitbucket commit'lerinin yazarı (boşsa kaynak korunur) |
+| `mirror.authorEmail`      | —           | Bitbucket commit'lerinin e-postası          |
 | `mirror.mode`             | `mirror`    | `mirror` = 1:1 commit, `snapshot` = tek commit |
 | `mirror.initMessage`      | `Initial import from internal repository` | Kök commit mesajı |
 
@@ -139,8 +149,11 @@ feature branch → GitHub'da PR → main'e merge → scripts/bbsync.sh push
 ## Dikkat
 
 - Bitbucket'ın hook'u sadece JIRA anahtarını değil, commit yazarının e-postasını
-  da doğrulayabilir. Script kaynak commit'in yazar/tarih bilgisini korur; ilk
-  push reddedilirse hata mesajına bak.
+  da doğrulayabilir. `mirror.authorName` / `mirror.authorEmail` ile Bitbucket
+  tarafındaki kimlik ayrıca ayarlanır; GitHub'daki yazar bilgisi etkilenmez.
+  Commit tarihleri her durumda kaynak commit'ten korunur.
+- `git config --global user.email` **değiştirme** — o GitHub tarafını da etkiler.
+  Bitbucket kimliği yalnızca yukarıdaki `mirror.*` anahtarlarıyla verilmelidir.
 - İlk push'tan sonra `git ls-remote bitbucket` ile hedefte **beklenmedik ref
   olmadığını** doğrula. Ortamdaki bazı araçlar (IDE eklentileri, git notes
   senkronu) tanımlı her remote'a kendi ref'lerini gönderebilir. Fazlalık varsa:
