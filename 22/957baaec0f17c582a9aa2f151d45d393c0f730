@@ -1,0 +1,40 @@
+docs/ip2/2026-1-iddia-dogrulama.md
+  s_76a8a7d322050e::t_dad9c97c6f58e6 1-93
+docs/ip2/2026-1-donem-raporu-plani.md
+  s_76a8a7d322050e::t_03552be72f823a 1-2,4,6,9-11,13,16,18,31-33,35,37,39,150,152,154,163-165,167,170,180-182,184,186-189,192,194-195,197-199,201,208-210,212
+  s_76a8a7d322050e::t_5c6ccb02b48f53 3,5,7-8,12,14-15,17,19-30,34,36,38,40-149,151,153,155-162,166,168-169,171-179,183,185,190-191,193,196,200,202-207,211,213-217
+docs/ip2/2026-1-donem-raporu-ip2-metin.md
+  s_76a8a7d322050e::t_ab56bafde7abeb 1-199
+scripts/bbsync.ps1
+  s_4c59327ccd29d2::t_63d82c3e7c3d83 1-29
+scripts/README.md
+  s_4c59327ccd29d2::t_02d264864cb6a8 1-125
+scripts/bbsync.sh
+  s_4c59327ccd29d2::t_d5619a46649f22 47-55,61-74
+  s_4c59327ccd29d2::t_70a2f41da03412 58
+  s_4c59327ccd29d2::t_18c54f7da24883 169-177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "22957baaec0f17c582a9aa2f151d45d393c0f730",
+  "prompts": {},
+  "sessions": {
+    "s_4c59327ccd29d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8d40b7d-5078-44ee-b55a-7d9cb43dcde7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    },
+    "s_76a8a7d322050e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e7296f65-d004-4306-a6e9-dffa1c6ff533",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
