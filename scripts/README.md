@@ -31,10 +31,14 @@ dokunulmaz — checkout, stash, branch değiştirme yoktur.
 # 1. Bitbucket remote'u (zaten tanımlıysa atla)
 git remote add bitbucket https://tlcbitbucket.innova.com.tr/scm/iodt/dt_prototype.git
 
-# 2. JIRA anahtarını ve varsayılanları yaz
-scripts/bbsync.sh setup IODT-123
+# 2. Varsayılanları yaz. JIRA anahtarı opsiyoneldir:
+scripts/bbsync.sh setup            # anahtar yok — mesajlar olduğu gibi gider
+scripts/bbsync.sh setup IODT-123   # anahtar varsa mesajlara eklenir
 
-# 3. Bitbucket trunk'ını tek commit ile başlat  (Bitbucket repo BOŞ olmalı)
+# 3. Geçmiş tutulmayacaksa snapshot modu (bu projenin tercihi)
+git config mirror.mode snapshot
+
+# 4. Bitbucket trunk'ını tek commit ile başlat  (Bitbucket repo BOŞ olmalı)
 scripts/bbsync.sh init
 ```
 
@@ -60,11 +64,29 @@ scripts/bbsync.sh push              # GitHub'a push + Bitbucket'a ayna
 | `init`    | Bitbucket trunk'ını tek kök commit ile başlatır (bir kez)        |
 | `rebuild` | Bitbucket geçmişini silip sıfırdan kurar (force push, onay ister)|
 
+## İki mod
+
+**`snapshot`** (bu projenin tercihi) — her `push` Bitbucket'a **tek bir commit**
+ekler; içerik GitHub `main`'in o anki hali, mesaj kapsanan commit'lerin özeti:
+
+```
+Sync main @ 9b51962
+
+- feat(twin): add status filter
+- fix(rdf): handle empty graph
+
+Source-Commit: 9b519629d7ec327d4130d6ab237b8dbfca473e78
+```
+
+**`mirror`** — GitHub'daki her commit Bitbucket'ta ayrı bir commit olur (aynı
+içerik, yeniden yazılmış mesaj). Geçmiş istenmiyorsa gereksizdir.
+
 ## Commit mesajları
 
-Mesajda **zaten bir JIRA anahtarı varsa** (`ABC-123` deseni) dokunulmaz;
-yoksa `mirror.jiraKey` başa eklenir. Ayrıca kaynak commit izi trailer olarak
-eklenir:
+JIRA anahtarı **opsiyoneldir**. `mirror.jiraKey` boşsa mesajlar olduğu gibi
+gönderilir (script uyarı basar, çünkü sunucu hook'u reddedebilir). Anahtar
+tanımlıysa ve mesajda zaten bir JIRA anahtarı yoksa (`ABC-123` deseni) başa
+eklenir. Her iki durumda kaynak commit izi trailer olarak eklenir:
 
 ```
 IODT-123 feat(discovery): geographic bbox search

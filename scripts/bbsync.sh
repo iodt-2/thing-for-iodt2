@@ -58,13 +58,25 @@ bb_message() {
   printf '%s\n\nSource-Commit: %s\n' "$msg" "$(git rev-parse "$src")"
 }
 
-# tree + parent + kaynak commit -> yeni Bitbucket commit'i (yazar/tarih korunur).
-# Mesaj stdin uzerinden verilir: Git Bash/Windows'ta <(...) sureclerarasi acilmiyor.
+# snapshot modu: tek commit, kapsadigi tum commit'lerin ozetiyle
+bb_snapshot_message() {
+  local last=$1 head=$2 subject
+  subject="Sync ${SRC_BRANCH} @ $(git rev-parse --short "$head")"
+  if [ -n "$JIRA_KEY" ]; then subject="${JIRA_KEY} ${subject}"; fi
+  printf '%s\n\n' "$subject"
+  git log --reverse --first-parent --pretty='- %s' "${last}..${head}"
+  printf '\nSource-Commit: %s\n' "$(git rev-parse "$head")"
+}
+
+# tree + parent + kaynak commit [+ hazir mesaj] -> yeni Bitbucket commit'i.
+# Yazar/tarih kaynak commit'ten korunur. Mesaj stdin uzerinden verilir:
+# Git Bash/Windows'ta <(...) sureclerarasi acilmiyor.
 make_commit() {
-  local tree=$1 parent=${2:-} src=$3
+  local tree=$1 parent=${2:-} src=$3 msg=${4:-}
   local args=("$tree")
   if [ -n "$parent" ]; then args+=(-p "$parent"); fi
-  bb_message "$src" | \
+  if [ -z "$msg" ]; then msg=$(bb_message "$src"); fi
+  printf '%s\n' "$msg" | \
   GIT_AUTHOR_NAME=$(git log -1 --pretty=%an "$src") \
   GIT_AUTHOR_EMAIL=$(git log -1 --pretty=%ae "$src") \
   GIT_AUTHOR_DATE=$(git log -1 --pretty=%aI "$src") \
@@ -81,10 +93,14 @@ check_jira() {
   fi
 }
 
+# JIRA anahtari opsiyoneldir: verilmezse mesajlar oldugu gibi gonderilir.
 cmd_setup() {
   local key=${1:-}
-  [ -n "$key" ] || die "kullanim: bbsync.sh setup <JIRA-KEY>   (or. IODT-123)"
-  git config mirror.jiraKey "$key"
+  if [ -n "$key" ]; then
+    git config mirror.jiraKey "$key"
+  else
+    git config --unset mirror.jiraKey 2>/dev/null || true
+  fi
   git config mirror.githubRemote "$GH_REMOTE"
   git config mirror.bitbucketRemote "$BB_REMOTE"
   git config mirror.sourceBranch "$SRC_BRANCH"
@@ -118,7 +134,11 @@ cmd_init() {
   git update-ref "$BB_REF" "$root"
   git update-ref "$SRC_REF" "$head"
   ok "Bitbucket trunk'i kuruldu -> ${BB_REMOTE}/${BB_BRANCH}"
-  ok "bundan sonraki commit'ler tek tek aynalanacak."
+  if [ "$MODE" = snapshot ]; then
+    ok "her 'push' bundan sonra tek bir ozet commit ekleyecek."
+  else
+    ok "bundan sonraki commit'ler tek tek aynalanacak."
+  fi
 }
 
 pending() {
@@ -165,7 +185,8 @@ cmd_mirror() {
   tip=$bb
   n=0
   if [ "$MODE" = snapshot ]; then
-    tip=$(make_commit "$(git rev-parse "${SRC_BRANCH}^{tree}")" "$tip" "$head")
+    tip=$(make_commit "$(git rev-parse "${SRC_BRANCH}^{tree}")" "$tip" "$head" \
+          "$(bb_snapshot_message "$last" "$head")")
     [ -n "$tip" ] || die "commit-tree basarisiz oldu."
     n=1
   else
