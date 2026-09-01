@@ -168,11 +168,17 @@ cmd_status() {
   printf 'mod      : %s\n\n' "$MODE"
   list=$(pending || true)
   if [ -z "$list" ]; then echo "aktarilacak commit yok."; return; fi
-  echo "aktarilacak:"
-  while read -r c; do
-    [ -n "$c" ] || continue
-    printf '  %s  %s\n' "${c:0:8}" "$(bb_message "$c" | head -1)"
-  done <<< "$list"
+  if [ "$MODE" = snapshot ]; then
+    # snapshot modunda hepsi TEK commit olur — gercekte gidecek mesaji goster
+    echo "aktarilacak (tek commit olarak):"
+    bb_snapshot_message "$last" "$(git rev-parse "$SRC_BRANCH")" | sed 's/^/  | /'
+  else
+    echo "aktarilacak:"
+    while read -r c; do
+      [ -n "$c" ] || continue
+      printf '  %s  %s\n' "${c:0:8}" "$(bb_message "$c" | head -1)"
+    done <<< "$list"
+  fi
 }
 
 cmd_mirror() {
