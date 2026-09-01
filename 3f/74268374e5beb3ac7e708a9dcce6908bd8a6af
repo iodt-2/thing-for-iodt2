@@ -1,0 +1,23 @@
+scripts/README.md
+  s_4c59327ccd29d2::t_1014b2c8bc59b5 119-121
+  s_4c59327ccd29d2::t_99caef68526382 41-49
+scripts/bbsync.sh
+  s_4c59327ccd29d2::t_099e1d4d6a6b69 83-87,89-90,92-93
+  s_4c59327ccd29d2::t_05c43c1c687e42 135-136,139-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "3f74268374e5beb3ac7e708a9dcce6908bd8a6af",
+  "prompts": {},
+  "sessions": {
+    "s_4c59327ccd29d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8d40b7d-5078-44ee-b55a-7d9cb43dcde7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
