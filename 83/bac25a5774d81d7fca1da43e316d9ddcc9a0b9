@@ -1,0 +1,19 @@
+scripts/bbsync.sh
+  s_4c59327ccd29d2::t_ae6ee79704ca2f 171-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "83bac25a5774d81d7fca1da43e316d9ddcc9a0b9",
+  "prompts": {},
+  "sessions": {
+    "s_4c59327ccd29d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8d40b7d-5078-44ee-b55a-7d9cb43dcde7",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
