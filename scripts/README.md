@@ -186,7 +186,7 @@ feature branch → GitHub'da PR → main'e merge → scripts/bbsync.sh push
   Commit tarihleri her durumda kaynak commit'ten korunur.
 - `git config --global user.email` **değiştirme** — o GitHub tarafını da etkiler.
   Bitbucket kimliği yalnızca yukarıdaki `mirror.*` anahtarlarıyla verilmelidir.
-- İlk push'tan sonra `git ls-remote bitbucket` ile hedefte **beklenmedik ref
-  olmadığını** doğrula. Ortamdaki bazı araçlar (IDE eklentileri, git notes
-  senkronu) tanımlı her remote'a kendi ref'lerini gönderebilir. Fazlalık varsa:
-  `git push bitbucket :refs/notes/ai`
+- Bitbucket'ta `master` dışında `refs/notes/ai` de görünür. Bunu bbsync
+  göndermez — PATH'te gerçek git'i gölgeleyen kurumsal `git-ai` sarmalayıcısı
+  (`~/.git-ai/bin/git.exe`) AI kullanım notlarını tanımlı remote'lara
+  senkronlar. **Beklenen davranıştır, silme.**
