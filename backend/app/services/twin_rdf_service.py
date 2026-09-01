@@ -25,7 +25,8 @@ from ..core import (
     TWIN, TWIN_DATA, GEO,
     create_interface_uri, create_instance_uri,
     create_property_uri, create_relationship_uri, create_command_uri,
-    get_twin_ontology, add_location_triples, get_inverse_type_map
+    get_twin_ontology, add_location_triples, get_inverse_type_map,
+    add_provenance_triples, add_attribute_triples,
 )
 from ..core.exceptions import FusekiException
 from ..core.geo import (
@@ -402,6 +403,46 @@ class TwinRDFService:
         except Exception as e:
             logger.warning(f"Failed to check interface existence for '{interface_name}': {e}")
             return False
+
+    async def get_content_hash(
+        self,
+        thing_id: str,
+        tenant_id: str = "default",
+    ) -> Optional[str]:
+        """
+        The ts:contentHash an earlier import left on this thing's graph.
+
+        Used to decide whether a record still matches what is stored. Storing
+        replaces the whole named graph, so an unchanged record is better left
+        untouched than rewritten.
+
+        Args:
+            thing_id: Original thing id, as used in the named graph URI
+            tenant_id: Tenant scope
+
+        Returns:
+            The stored hash, or None when the thing or the hash is absent
+        """
+        graph_uri = f"http://twin.io/graphs/{tenant_id}/{thing_id}"
+        query = f"""
+        PREFIX ts: <{self.TS}>
+
+        SELECT ?hash WHERE {{
+            GRAPH <{graph_uri}> {{
+                ?interface a ts:TwinInterface ;
+                           ts:contentHash ?hash .
+            }}
+        }}
+        LIMIT 1
+        """
+
+        try:
+            results = await self._execute_query(query)
+            rows = self._parse_sparql_results(results)
+            return rows[0]["hash"] if rows else None
+        except Exception as e:
+            logger.warning(f"Failed to read content hash for '{thing_id}': {e}")
+            return None
 
     async def query_instances(
         self,
@@ -1174,6 +1215,301 @@ class TwinRDFService:
         matches.sort(key=lambda match: match[1])
         return matches[:limit]
 
+    # ========================================================================
+    # Impact analysis support
+    # ========================================================================
+
+    async def list_located_interfaces(
+        self,
+        tenant_id: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Twins that carry coordinates, with the structural type they declare.
+
+        This is what a hazard simulation needs from us: where each twin is and
+        what kind of structure it is. Twins without coordinates cannot be
+        placed in a ground-motion field and are left out.
+
+        Returns:
+            Dicts with name, uri, latitude, longitude and structure_type
+        """
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        PREFIX geo: <{self.GEO}>
+
+        SELECT ?uri ?name ?lat ?lon ?structure
+        WHERE {{
+            GRAPH ?graph {{
+                ?uri a ts:TwinInterface ;
+                     ts:name ?name ;
+                     geo:lat ?lat ;
+                     geo:long ?lon .
+                OPTIONAL {{
+                    ?uri ts:hasAttribute ?attribute .
+                    ?attribute ts:attributeName "buildingType" ;
+                               ts:attributeValue ?structure .
+                }}
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        """
+
+        rows = self._parse_sparql_results(await self._execute_query(query))
+
+        located: List[Dict[str, Any]] = []
+        for row in rows:
+            latitude = parse_coordinate(row.get("lat"))
+            longitude = parse_coordinate(row.get("lon"))
+            if not is_valid_point(latitude, longitude):
+                continue
+            located.append({
+                "uri": row.get("uri"),
+                "name": row.get("name"),
+                "latitude": latitude,
+                "longitude": longitude,
+                "structure_type": row.get("structure"),
+            })
+
+        located.sort(key=lambda item: item["name"] or "")
+        return located[:limit] if limit else located
+
+    async def list_relationship_edges(
+        self,
+        tenant_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Every relationship in the tenant, as source/target/type triples.
+
+        Both the asserted relationships and the inverses the platform wrote
+        come back; impact analysis collapses the duplicate hops itself.
+
+        Returns:
+            Dicts with uri, name, source, target, type and status
+        """
+        query = f"""
+        PREFIX ts: <{self.TS}>
+
+        SELECT ?rel ?name ?source ?target ?type ?status
+        WHERE {{
+            GRAPH ?graph {{
+                ?rel a ts:Relationship ;
+                     ts:sourceInterface ?source ;
+                     ts:targetInterface ?target .
+                OPTIONAL {{ ?rel ts:relationshipName ?name }}
+                OPTIONAL {{ ?rel ts:relationshipType ?type }}
+                OPTIONAL {{ ?rel ts:relationshipStatus ?status }}
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        """
+
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        return [
+            {
+                "uri": row.get("rel"),
+                "name": row.get("name"),
+                "source": self._local_name(row.get("source")),
+                "target": self._local_name(row.get("target")),
+                "type": self._local_name(row.get("type")),
+                "status": self._local_name(row.get("status")),
+            }
+            for row in rows
+        ]
+
+    async def set_relationship_status(
+        self,
+        relationship_uris: List[str],
+        status: str = "Degraded",
+        tenant_id: Optional[str] = None,
+    ) -> int:
+        """
+        Mark relationships with a status, replacing whatever they carried.
+
+        Relationships are never deleted to record a failure — the platform
+        changes their status so the history stays readable, the same rule the
+        delete path follows.
+
+        Args:
+            relationship_uris: reified ts:Relationship nodes to update
+            status: local name of a ts:RelationshipStatus individual
+            tenant_id: tenant scope, so one tenant cannot degrade another's graph
+
+        Returns:
+            Number of relationships the update was issued for
+        """
+        if not relationship_uris:
+            return 0
+
+        values = " ".join(f"<{uri}>" for uri in relationship_uris)
+        status_uri = self.TS[status]
+        graph_filter = self._build_tenant_graph_filter(tenant_id)
+
+        update = f"""
+        PREFIX ts: <{self.TS}>
+
+        DELETE {{ GRAPH ?graph {{ ?rel ts:relationshipStatus ?old }} }}
+        INSERT {{ GRAPH ?graph {{ ?rel ts:relationshipStatus <{status_uri}> }} }}
+        WHERE {{
+            GRAPH ?graph {{
+                ?rel a ts:Relationship .
+                OPTIONAL {{ ?rel ts:relationshipStatus ?old }}
+            }}
+            VALUES ?rel {{ {values} }}
+            {graph_filter}
+        }}
+        """
+
+        await self._execute_update(update)
+        effective_tenant = tenant_id or "default"
+        logger.info(
+            f"Set status '{status}' on {len(relationship_uris)} relationship(s) "
+            f"for tenant '{effective_tenant}'"
+        )
+        return len(relationship_uris)
+
+    async def list_simulation_runs(
+        self,
+        tenant_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        Simulation runs recorded for a tenant, newest first.
+
+        Runs live in their own named graphs, so listing them cannot disturb or
+        be disturbed by the twins they are about.
+        """
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        PREFIX geo: <{self.GEO}>
+
+        SELECT ?runId ?at ?hazard ?magnitude ?lat ?lon (COUNT(?impact) AS ?impacts)
+        WHERE {{
+            GRAPH ?graph {{
+                ?run a ts:SimulationRun ;
+                     ts:runId ?runId .
+                OPTIONAL {{ ?run ts:simulatedAt ?at }}
+                OPTIONAL {{ ?run ts:hazardType ?hazard }}
+                OPTIONAL {{ ?run ts:magnitude ?magnitude }}
+                OPTIONAL {{ ?run geo:lat ?lat }}
+                OPTIONAL {{ ?run geo:long ?lon }}
+                OPTIONAL {{ ?run ts:hasImpact ?impact }}
+            }}
+            {self._build_tenant_graph_filter(tenant_id)}
+        }}
+        GROUP BY ?runId ?at ?hazard ?magnitude ?lat ?lon
+        """
+
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        runs = [
+            {
+                "run_id": row.get("runId"),
+                "simulated_at": row.get("at"),
+                "hazard": row.get("hazard"),
+                "magnitude": parse_coordinate(row.get("magnitude")),
+                "latitude": parse_coordinate(row.get("lat")),
+                "longitude": parse_coordinate(row.get("lon")),
+                "impacts": int(row.get("impacts") or 0),
+            }
+            for row in rows
+        ]
+        runs.sort(key=lambda run: run.get("simulated_at") or "", reverse=True)
+        return runs[:limit]
+
+    async def get_simulation_run(
+        self,
+        run_id: str,
+        tenant_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        One run with the impacts it recorded, or None when there is no such run.
+        """
+        tenant = tenant_id or "default"
+        graph_uri = f"http://twin.io/graphs/{tenant}/simulation/{run_id}"
+
+        query = f"""
+        PREFIX ts: <{self.TS}>
+        PREFIX geo: <{self.GEO}>
+
+        SELECT ?at ?hazard ?magnitude ?depth ?lat ?lon ?source
+               ?impact ?kind ?subject ?severity ?state ?pga ?distance
+               ?depthHops ?from ?via
+        WHERE {{
+            GRAPH <{graph_uri}> {{
+                ?run a ts:SimulationRun ;
+                     ts:runId "{self._escape_literal(run_id)}" .
+                OPTIONAL {{ ?run ts:simulatedAt ?at }}
+                OPTIONAL {{ ?run ts:hazardType ?hazard }}
+                OPTIONAL {{ ?run ts:magnitude ?magnitude }}
+                OPTIONAL {{ ?run ts:depthKm ?depth }}
+                OPTIONAL {{ ?run geo:lat ?lat }}
+                OPTIONAL {{ ?run geo:long ?lon }}
+                OPTIONAL {{ ?run ts:externalSource ?source }}
+                OPTIONAL {{
+                    ?run ts:hasImpact ?impact .
+                    ?impact ts:impactKind ?kind ;
+                            ts:impactSubject ?subject ;
+                            ts:severity ?severity .
+                    OPTIONAL {{ ?impact ts:damageState ?state }}
+                    OPTIONAL {{ ?impact ts:peakGroundAcceleration ?pga }}
+                    OPTIONAL {{ ?impact ts:distanceKm ?distance }}
+                    OPTIONAL {{ ?impact ts:propagationDepth ?depthHops }}
+                    OPTIONAL {{ ?impact ts:propagatedFrom ?from }}
+                    OPTIONAL {{ ?impact ts:viaRelationshipType ?via }}
+                }}
+            }}
+        }}
+        """
+
+        rows = self._parse_sparql_results(await self._execute_query(query))
+        if not rows:
+            return None
+
+        head = rows[0]
+        run: Dict[str, Any] = {
+            "run_id": run_id,
+            "simulated_at": head.get("at"),
+            "hazard": head.get("hazard"),
+            "magnitude": parse_coordinate(head.get("magnitude")),
+            "depth_km": parse_coordinate(head.get("depth")),
+            "latitude": parse_coordinate(head.get("lat")),
+            "longitude": parse_coordinate(head.get("lon")),
+            "provider": head.get("source"),
+            "direct": [],
+            "propagated": [],
+        }
+
+        for row in rows:
+            if not row.get("impact"):
+                continue
+            entry = {
+                "thing": self._local_name(row.get("subject")),
+                "severity": parse_coordinate(row.get("severity")),
+            }
+            if self._local_name(row.get("kind")) == "PropagatedImpact":
+                entry["depth"] = int(float(row.get("depthHops") or 0))
+                entry["via_thing"] = self._local_name(row.get("from"))
+                entry["via_type"] = self._local_name(row.get("via"))
+                run["propagated"].append(entry)
+            else:
+                entry["damage_state"] = row.get("state")
+                entry["pga"] = parse_coordinate(row.get("pga"))
+                entry["distance_km"] = parse_coordinate(row.get("distance"))
+                run["direct"].append(entry)
+
+        run["direct"].sort(key=lambda item: -(item.get("severity") or 0))
+        run["propagated"].sort(key=lambda item: -(item.get("severity") or 0))
+        return run
+
+    async def store_graph_at(self, graph: Graph, graph_uri: str) -> bool:
+        """
+        Replace one named graph with the given triples.
+
+        Used for graphs the platform owns outright, such as a simulation run.
+        """
+        await self._store_named_graph(graph, graph_uri)
+        return True
+
     @staticmethod
     def _local_name(value: Optional[str]) -> Optional[str]:
         """Last path or fragment segment of a URI; passes plain strings through."""
@@ -1722,6 +2058,9 @@ class TwinRDFService:
                 graph.add((interface_uri, self.TS.dtdlCategory, Literal(annotations["dtdl-category"])))
             # Location (W3C Basic Geo) — makes the twin geographically discoverable
             add_location_triples(graph, interface_uri, annotations)
+            # Where an imported twin came from, and the facts it carries
+            add_provenance_triples(graph, interface_uri, annotations)
+            add_attribute_triples(graph, interface_uri, interface_name, annotations)
 
         spec = interface_data.get("spec", {})
 
@@ -1821,6 +2160,9 @@ class TwinRDFService:
         add_location_triples(
             graph, instance_uri, instance_data["metadata"].get("annotations")
         )
+        instance_annotations = instance_data["metadata"].get("annotations")
+        add_provenance_triples(graph, instance_uri, instance_annotations)
+        add_attribute_triples(graph, instance_uri, instance_name, instance_annotations)
 
         # Instance relationships
         for rel in instance_data["spec"].get("twinInstanceRelationships", []):

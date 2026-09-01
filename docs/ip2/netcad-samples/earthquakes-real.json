@@ -1,0 +1,237 @@
+{
+  "count": 21,
+  "earthquakes": [
+    {
+      "depth": 7.0,
+      "id": "725790",
+      "latitude": 40.0755,
+      "location": "\u0130nhisar (Bilecik)",
+      "longitude": 30.47117,
+      "magnitude": 3.3,
+      "source": "AFAD",
+      "time": "2026-08-17T11:23:23"
+    },
+    {
+      "depth": 8.55,
+      "id": "725773",
+      "latitude": 38.202,
+      "location": "Battalgazi (Malatya)",
+      "longitude": 38.586,
+      "magnitude": 3.1,
+      "source": "AFAD",
+      "time": "2026-08-17T05:39:47"
+    },
+    {
+      "depth": 46.26,
+      "id": "725741",
+      "latitude": 44.28583,
+      "location": "Karadeniz",
+      "longitude": 33.0255,
+      "magnitude": 3.3,
+      "source": "AFAD",
+      "time": "2026-08-16T22:22:11"
+    },
+    {
+      "depth": 5.79,
+      "id": "725708",
+      "latitude": 37.138,
+      "location": "\u0130slahiye (Gaziantep)",
+      "longitude": 36.67433,
+      "magnitude": 3.0,
+      "source": "AFAD",
+      "time": "2026-08-16T12:23:12"
+    },
+    {
+      "depth": 6.99,
+      "id": "725679",
+      "latitude": 39.3965,
+      "location": "Ki\u011f\u0131 (Bing\u00f6l)",
+      "longitude": 40.4385,
+      "magnitude": 3.2,
+      "source": "AFAD",
+      "time": "2026-08-16T02:44:47"
+    },
+    {
+      "depth": 13.75,
+      "id": "725640",
+      "latitude": 35.7805,
+      "location": "Akdeniz - [100.88 km] Marmaris (Mu\u011fla)",
+      "longitude": 27.71583,
+      "magnitude": 3.0,
+      "source": "AFAD",
+      "time": "2026-08-15T15:45:33"
+    },
+    {
+      "depth": 13.79,
+      "id": "725635",
+      "latitude": 40.04917,
+      "location": "Mustafakemalpa\u015fa (Bursa)",
+      "longitude": 28.6575,
+      "magnitude": 3.1,
+      "source": "AFAD",
+      "time": "2026-08-15T13:19:25"
+    },
+    {
+      "depth": 17.43,
+      "id": "725620",
+      "latitude": 35.76583,
+      "location": "Akdeniz - [103.85 km] Marmaris (Mu\u011fla)",
+      "longitude": 27.67167,
+      "magnitude": 3.3,
+      "source": "AFAD",
+      "time": "2026-08-15T05:14:01"
+    },
+    {
+      "depth": 13.35,
+      "id": "725616",
+      "latitude": 40.05033,
+      "location": "Mustafakemalpa\u015fa (Bursa)",
+      "longitude": 28.65033,
+      "magnitude": 3.4,
+      "source": "AFAD",
+      "time": "2026-08-15T03:42:14"
+    },
+    {
+      "depth": 15.06,
+      "id": "725617",
+      "latitude": 38.76467,
+      "location": "Yunusemre (Manisa)",
+      "longitude": 27.152,
+      "magnitude": 3.0,
+      "source": "AFAD",
+      "time": "2026-08-15T03:33:21"
+    },
+    {
+      "depth": 7.01,
+      "id": "725590",
+      "latitude": 39.25367,
+      "location": "Simav (K\u00fctahya)",
+      "longitude": 28.9615,
+      "magnitude": 3.1,
+      "source": "AFAD",
+      "time": "2026-08-14T22:00:51"
+    },
+    {
+      "depth": 36.89,
+      "id": "725587",
+      "latitude": 38.83167,
+      "location": "Ege Denizi - [56.59 km] Karaburun (\u0130zmir)",
+      "longitude": 25.793,
+      "magnitude": 3.8,
+      "source": "AFAD",
+      "time": "2026-08-14T21:01:24"
+    },
+    {
+      "depth": 8.02,
+      "id": "725556",
+      "latitude": 43.53067,
+      "location": "Karadeniz",
+      "longitude": 30.60267,
+      "magnitude": 3.3,
+      "source": "AFAD",
+      "time": "2026-08-14T07:26:59"
+    },
+    {
+      "depth": 9.01,
+      "id": "725521",
+      "latitude": 35.47333,
+      "location": "Chamchamal, S\u00fcleymaniye (Irak) - [184.70 km] \u015eemdinli (Hakkari)",
+      "longitude": 45.00967,
+      "magnitude": 3.9,
+      "source": "AFAD",
+      "time": "2026-08-13T22:27:54"
+    },
+    {
+      "depth": 17.95,
+      "id": "725479",
+      "latitude": 40.43083,
+      "location": "G\u00f6yn\u00fccek (Amasya)",
+      "longitude": 35.5415,
+      "magnitude": 3.6,
+      "source": "AFAD",
+      "time": "2026-08-13T10:33:37"
+    },
+    {
+      "depth": 10.68,
+      "id": "725470",
+      "latitude": 40.44,
+      "location": "G\u00f6yn\u00fccek (Amasya)",
+      "longitude": 35.556,
+      "magnitude": 3.0,
+      "source": "AFAD",
+      "time": "2026-08-13T07:33:14"
+    },
+    {
+      "depth": 9.8,
+      "id": "725465",
+      "latitude": 38.11917,
+      "location": "Ege Denizi - [17.15 km] \u00c7e\u015fme (\u0130zmir)",
+      "longitude": 26.28917,
+      "magnitude": 3.3,
+      "source": "AFAD",
+      "time": "2026-08-13T05:32:46"
+    },
+    {
+      "depth": 8.8,
+      "id": "725414",
+      "latitude": 38.587,
+      "location": "Merkez (Elaz\u0131\u011f)",
+      "longitude": 39.57,
+      "magnitude": 3.6,
+      "source": "AFAD",
+      "time": "2026-08-12T17:40:11"
+    },
+    {
+      "depth": 12.37,
+      "id": "725396",
+      "latitude": 38.79283,
+      "location": "Ege Denizi - [16.92 km] Karaburun (\u0130zmir)",
+      "longitude": 26.564,
+      "magnitude": 3.7,
+      "source": "AFAD",
+      "time": "2026-08-12T08:30:06"
+    },
+    {
+      "depth": 14.44,
+      "id": "725360",
+      "latitude": 35.96033,
+      "location": "Akdeniz - [74.78 km] Marmaris (Mu\u011fla)",
+      "longitude": 28.03983,
+      "magnitude": 3.2,
+      "source": "AFAD",
+      "time": "2026-08-11T21:53:08"
+    },
+    {
+      "depth": 6.98,
+      "id": "725346",
+      "latitude": 45.45617,
+      "location": "Buzau (Romanya)",
+      "longitude": 26.279,
+      "magnitude": 4.3,
+      "source": "AFAD",
+      "time": "2026-08-11T17:21:13"
+    }
+  ],
+  "filters": {
+    "days": 7,
+    "min_magnitude": 3.0,
+    "source": "all"
+  },
+  "sources": [
+    "afad",
+    "usgs"
+  ],
+  "statistics": {
+    "above_3": 21,
+    "above_4": 1,
+    "avg_magnitude": 3.357142857142857,
+    "max_magnitude": 4.3,
+    "min_magnitude": 3.0,
+    "total_count": 21
+  },
+  "time_range": {
+    "from": "2026-08-11T09:37:54.184783",
+    "to": "2026-08-18T09:37:54.184783"
+  },
+  "timestamp": "2026-08-18T09:37:54.184783"
+}

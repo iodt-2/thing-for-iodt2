@@ -55,7 +55,7 @@ SCHEMA = Namespace("https://schema.org/")          # Product metadata
 
 # The ontology resource itself (namespace URI without the trailing '#')
 ONTOLOGY_URI = URIRef("http://twin.dtd/ontology")
-ONTOLOGY_VERSION = "2.0.0"
+ONTOLOGY_VERSION = "2.2.0"
 
 
 # ============================================================================
@@ -82,6 +82,37 @@ RELATIONSHIP_TYPES = (
     ("dependsOn", "isDependedOnBy", "target-to-source", "#6366f1",
      "The source requires the target in order to function"),
 )
+
+# Direction a *failure* travels along a relationship type — which is not the
+# same question as ts:propagationDirection above, and the two disagree on
+# purpose. propagationDirection is a UI hint about how a relationship reads
+# and which way an edge animates. impactDirection answers: when one end stops
+# working, which end loses its function?
+#
+#   feeds      supply lost      → the fed thing suffers      (source → target)
+#   controls   commander lost   → the controlled thing suffers (source → target)
+#   contains   either way       → structure and content share a fate
+#   monitors   observed thing lost → the monitor goes blind  (target → source)
+#   dependsOn  the needed thing lost → the dependant suffers (target → source)
+#
+# Inverse types are derived from these by flipping, so only forward types are
+# listed. Anything missing falls back to source-to-target in the propagation
+# code: an unmodelled relationship should still carry impact.
+
+IMPACT_DIRECTIONS = {
+    "feeds": "source-to-target",
+    "controls": "source-to-target",
+    "contains": "bidirectional",
+    "monitors": "target-to-source",
+    "dependsOn": "target-to-source",
+}
+
+_FLIPPED = {
+    "source-to-target": "target-to-source",
+    "target-to-source": "source-to-target",
+    "bidirectional": "bidirectional",
+}
+
 
 # Standard namespaces
 # RDF, RDFS, XSD are imported from rdflib
@@ -168,6 +199,36 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.InstanceRelationship, RDFS.label, Literal("Instance Relationship", lang="en")))
     g.add((TWIN.InstanceRelationship, RDFS.comment,
            Literal("A relationship between twin instances", lang="en")))
+
+    # SimulationRun Class
+    g.add((TWIN.SimulationRun, RDF.type, RDFS.Class))
+    g.add((TWIN.SimulationRun, RDFS.label, Literal("Simulation Run", lang="en")))
+    g.add((TWIN.SimulationRun, RDFS.comment, Literal(
+        "One execution of an external hazard simulation against this graph. "
+        "Kept in its own named graph so a run records what was believed at a "
+        "point in time without rewriting the twins it is about.", lang="en")))
+
+    # Impact Class
+    g.add((TWIN.Impact, RDF.type, RDFS.Class))
+    g.add((TWIN.Impact, RDFS.label, Literal("Impact", lang="en")))
+    g.add((TWIN.Impact, RDFS.comment, Literal(
+        "What a simulation run means for one twin: either damage computed "
+        "directly for its location, or loss of function inherited through a "
+        "relationship to something that was damaged.", lang="en")))
+
+    g.add((TWIN.DirectImpact, RDF.type, TWIN.ImpactKind))
+    g.add((TWIN.PropagatedImpact, RDF.type, TWIN.ImpactKind))
+    g.add((TWIN.ImpactKind, RDF.type, RDFS.Class))
+    g.add((TWIN.ImpactKind, RDFS.label, Literal("Impact Kind", lang="en")))
+
+    # Attribute Class
+    g.add((TWIN.Attribute, RDF.type, RDFS.Class))
+    g.add((TWIN.Attribute, RDFS.label, Literal("Attribute", lang="en")))
+    g.add((TWIN.Attribute, RDFS.comment, Literal(
+        "A static, factual value carried by a twin, such as an operator name "
+        "or a structural height. Distinct from ts:Property, which declares the "
+        "schema of a value the twin reports but does not hold the value itself. "
+        "Attributes typically originate from an external inventory.", lang="en")))
 
     # ========================================================================
     # Properties - Interface Structure
@@ -270,7 +331,22 @@ def get_twin_ontology() -> Graph:
 
     # Metadata properties carried by every relationship type
     g.add((TWIN.propagationDirection, RDF.type, RDF.Property))
+    g.add((TWIN.propagationDirection, RDFS.comment, Literal(
+        "How the relationship reads for presentation: which way an edge points "
+        "and animates. Not a failure model — see ts:impactDirection.",
+        lang="en")))
     g.add((TWIN.propagationDirection, RDFS.domain, TWIN.RelationshipType))
+
+    g.add((TWIN.impactDirection, RDF.type, RDF.Property))
+    g.add((TWIN.impactDirection, RDFS.label, Literal("impact direction", lang="en")))
+    g.add((TWIN.impactDirection, RDFS.comment, Literal(
+        "Which end loses its function when the other end stops working. Read "
+        "by impact analysis to follow a failure through the graph; a monitor "
+        "goes blind when the thing it observes is destroyed, so ts:monitors "
+        "carries impact target-to-source while it reads source-to-target.",
+        lang="en")))
+    g.add((TWIN.impactDirection, RDFS.domain, TWIN.RelationshipType))
+    g.add((TWIN.impactDirection, RDFS.range, XSD.string))
     g.add((TWIN.onTargetDeleted, RDF.type, RDF.Property))
     g.add((TWIN.onTargetDeleted, RDFS.domain, TWIN.RelationshipType))
     g.add((TWIN.Deactivate, RDF.type, TWIN.DeletionPolicy))
@@ -304,6 +380,9 @@ def get_twin_ontology() -> Graph:
             g.add((term, TWIN.uiColor, Literal(colour)))
             g.add((term, TWIN.isDerived, Literal(derived, datatype=XSD.boolean)))
             g.add((term, TWIN.propagationDirection, Literal(direction)))
+            impact = IMPACT_DIRECTIONS.get(fwd, "source-to-target")
+            g.add((term, TWIN.impactDirection,
+                   Literal(impact if not derived else _FLIPPED[impact])))
             g.add((term, TWIN.onTargetDeleted, TWIN.Deactivate))
 
         g.add((TWIN[fwd], RDFS.comment, Literal(comment, lang="en")))
@@ -456,6 +535,169 @@ def get_twin_ontology() -> Graph:
     g.add((TWIN.dtdlCategory, RDFS.range, XSD.string))
 
     # ========================================================================
+    # Properties - Attribute values
+    # ========================================================================
+
+    # hasAttribute
+    g.add((TWIN.hasAttribute, RDF.type, RDF.Property))
+    g.add((TWIN.hasAttribute, RDFS.label, Literal("has attribute", lang="en")))
+    g.add((TWIN.hasAttribute, RDFS.comment,
+           Literal("Links a twin to a static attribute value it carries", lang="en")))
+    g.add((TWIN.hasAttribute, RDFS.range, TWIN.Attribute))
+
+    # attributeName
+    g.add((TWIN.attributeName, RDF.type, RDF.Property))
+    g.add((TWIN.attributeName, RDFS.label, Literal("attribute name", lang="en")))
+    g.add((TWIN.attributeName, RDFS.domain, TWIN.Attribute))
+    g.add((TWIN.attributeName, RDFS.range, XSD.string))
+
+    # attributeValue
+    g.add((TWIN.attributeValue, RDF.type, RDF.Property))
+    g.add((TWIN.attributeValue, RDFS.label, Literal("attribute value", lang="en")))
+    g.add((TWIN.attributeValue, RDFS.comment, Literal(
+        "The value itself. Numeric values are typed xsd:decimal so they can be "
+        "compared in SPARQL; everything else stays a plain literal.", lang="en")))
+    g.add((TWIN.attributeValue, RDFS.domain, TWIN.Attribute))
+
+    # ========================================================================
+    # Properties - External provenance
+    # ========================================================================
+    # Twins imported from another organisation's service must say so. Without
+    # this, a federated graph cannot tell what it owns from what it mirrored,
+    # and a refresh cannot know what it is allowed to replace.
+
+    # externalSource
+    g.add((TWIN.externalSource, RDF.type, RDF.Property))
+    g.add((TWIN.externalSource, RDFS.label, Literal("external source", lang="en")))
+    g.add((TWIN.externalSource, RDFS.comment,
+           Literal("Key of the external provider this twin was imported from", lang="en")))
+    g.add((TWIN.externalSource, RDFS.range, XSD.string))
+
+    # externalId
+    g.add((TWIN.externalId, RDF.type, RDF.Property))
+    g.add((TWIN.externalId, RDFS.label, Literal("external ID", lang="en")))
+    g.add((TWIN.externalId, RDFS.comment,
+           Literal("Identifier this record carries in the source system", lang="en")))
+    g.add((TWIN.externalId, RDFS.range, XSD.string))
+
+    # externalUrl
+    g.add((TWIN.externalUrl, RDF.type, RDF.Property))
+    g.add((TWIN.externalUrl, RDFS.label, Literal("external URL", lang="en")))
+    g.add((TWIN.externalUrl, RDFS.comment,
+           Literal("Endpoint the record was retrieved from", lang="en")))
+    g.add((TWIN.externalUrl, RDFS.range, XSD.anyURI))
+
+    # fetchedAt
+    g.add((TWIN.fetchedAt, RDF.type, RDF.Property))
+    g.add((TWIN.fetchedAt, RDFS.label, Literal("fetched at", lang="en")))
+    g.add((TWIN.fetchedAt, RDFS.comment,
+           Literal("When the external record was last retrieved", lang="en")))
+    g.add((TWIN.fetchedAt, RDFS.range, XSD.dateTime))
+
+    # contentHash
+    g.add((TWIN.contentHash, RDF.type, RDF.Property))
+    g.add((TWIN.contentHash, RDFS.label, Literal("content hash", lang="en")))
+    g.add((TWIN.contentHash, RDFS.comment, Literal(
+        "Hash of the mapped source record. An import compares it before "
+        "writing, so an unchanged record does not replace its named graph.",
+        lang="en")))
+    g.add((TWIN.contentHash, RDFS.range, XSD.string))
+
+    # ========================================================================
+    # Properties - Simulation and impact
+    # ========================================================================
+
+    g.add((TWIN.runId, RDF.type, RDF.Property))
+    g.add((TWIN.runId, RDFS.label, Literal("run ID", lang="en")))
+    g.add((TWIN.runId, RDFS.domain, TWIN.SimulationRun))
+    g.add((TWIN.runId, RDFS.range, XSD.string))
+
+    g.add((TWIN.simulatedAt, RDF.type, RDF.Property))
+    g.add((TWIN.simulatedAt, RDFS.label, Literal("simulated at", lang="en")))
+    g.add((TWIN.simulatedAt, RDFS.domain, TWIN.SimulationRun))
+    g.add((TWIN.simulatedAt, RDFS.range, XSD.dateTime))
+
+    g.add((TWIN.hazardType, RDF.type, RDF.Property))
+    g.add((TWIN.hazardType, RDFS.label, Literal("hazard type", lang="en")))
+    g.add((TWIN.hazardType, RDFS.comment,
+           Literal("What was simulated, e.g. earthquake", lang="en")))
+    g.add((TWIN.hazardType, RDFS.domain, TWIN.SimulationRun))
+    g.add((TWIN.hazardType, RDFS.range, XSD.string))
+
+    g.add((TWIN.magnitude, RDF.type, RDF.Property))
+    g.add((TWIN.magnitude, RDFS.label, Literal("magnitude", lang="en")))
+    g.add((TWIN.magnitude, RDFS.domain, TWIN.SimulationRun))
+    g.add((TWIN.magnitude, RDFS.range, XSD.decimal))
+
+    g.add((TWIN.depthKm, RDF.type, RDF.Property))
+    g.add((TWIN.depthKm, RDFS.label, Literal("depth in km", lang="en")))
+    g.add((TWIN.depthKm, RDFS.domain, TWIN.SimulationRun))
+    g.add((TWIN.depthKm, RDFS.range, XSD.decimal))
+
+    g.add((TWIN.hasImpact, RDF.type, RDF.Property))
+    g.add((TWIN.hasImpact, RDFS.label, Literal("has impact", lang="en")))
+    g.add((TWIN.hasImpact, RDFS.domain, TWIN.SimulationRun))
+    g.add((TWIN.hasImpact, RDFS.range, TWIN.Impact))
+
+    g.add((TWIN.impactSubject, RDF.type, RDF.Property))
+    g.add((TWIN.impactSubject, RDFS.label, Literal("impact subject", lang="en")))
+    g.add((TWIN.impactSubject, RDFS.comment,
+           Literal("The twin this impact is about", lang="en")))
+    g.add((TWIN.impactSubject, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.impactSubject, RDFS.range, TWIN.TwinInterface))
+
+    g.add((TWIN.impactKind, RDF.type, RDF.Property))
+    g.add((TWIN.impactKind, RDFS.label, Literal("impact kind", lang="en")))
+    g.add((TWIN.impactKind, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.impactKind, RDFS.range, TWIN.ImpactKind))
+
+    g.add((TWIN.severity, RDF.type, RDF.Property))
+    g.add((TWIN.severity, RDFS.label, Literal("severity", lang="en")))
+    g.add((TWIN.severity, RDFS.comment, Literal(
+        "Loss of function from 0 to 1. For a directly damaged twin this comes "
+        "from the simulation; for a propagated one it is what reached it "
+        "through the graph.", lang="en")))
+    g.add((TWIN.severity, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.severity, RDFS.range, XSD.decimal))
+
+    g.add((TWIN.damageState, RDF.type, RDF.Property))
+    g.add((TWIN.damageState, RDFS.label, Literal("damage state", lang="en")))
+    g.add((TWIN.damageState, RDFS.comment, Literal(
+        "Damage class as the simulating service named it, kept verbatim rather "
+        "than remapped, so the source stays quotable.", lang="en")))
+    g.add((TWIN.damageState, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.damageState, RDFS.range, XSD.string))
+
+    g.add((TWIN.peakGroundAcceleration, RDF.type, RDF.Property))
+    g.add((TWIN.peakGroundAcceleration, RDFS.label,
+           Literal("peak ground acceleration", lang="en")))
+    g.add((TWIN.peakGroundAcceleration, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.peakGroundAcceleration, RDFS.range, XSD.decimal))
+
+    g.add((TWIN.distanceKm, RDF.type, RDF.Property))
+    g.add((TWIN.distanceKm, RDFS.label, Literal("distance in km", lang="en")))
+    g.add((TWIN.distanceKm, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.distanceKm, RDFS.range, XSD.decimal))
+
+    g.add((TWIN.propagationDepth, RDF.type, RDF.Property))
+    g.add((TWIN.propagationDepth, RDFS.label, Literal("propagation depth", lang="en")))
+    g.add((TWIN.propagationDepth, RDFS.comment,
+           Literal("Hops between the damaged twin and this one", lang="en")))
+    g.add((TWIN.propagationDepth, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.propagationDepth, RDFS.range, XSD.integer))
+
+    g.add((TWIN.propagatedFrom, RDF.type, RDF.Property))
+    g.add((TWIN.propagatedFrom, RDFS.label, Literal("propagated from", lang="en")))
+    g.add((TWIN.propagatedFrom, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.propagatedFrom, RDFS.range, TWIN.TwinInterface))
+
+    g.add((TWIN.viaRelationshipType, RDF.type, RDF.Property))
+    g.add((TWIN.viaRelationshipType, RDFS.label,
+           Literal("via relationship type", lang="en")))
+    g.add((TWIN.viaRelationshipType, RDFS.domain, TWIN.Impact))
+    g.add((TWIN.viaRelationshipType, RDFS.range, TWIN.RelationshipType))
+
+    # ========================================================================
     # Alignment — W3C SSN/SOSA, schema.org, QUDT
     # ========================================================================
     # A consumer that knows SSN/SOSA but not ts: must still be able to read the
@@ -466,7 +708,8 @@ def get_twin_ontology() -> Graph:
     # Declare ts: classes as OWL classes too, so OWL tooling picks them up
     for cls in (TWIN.TwinInterface, TWIN.TwinInstance, TWIN.Property,
                 TWIN.Relationship, TWIN.Command, TWIN.InstanceRelationship,
-                TWIN.RelationshipType, TWIN.RelationshipStatus):
+                TWIN.RelationshipType, TWIN.RelationshipStatus, TWIN.Attribute,
+                TWIN.SimulationRun, TWIN.Impact, TWIN.ImpactKind):
         g.add((cls, RDF.type, OWL.Class))
 
     # TwinInterface / TwinInstance -> ssn:System
@@ -588,6 +831,7 @@ def get_relationship_types(graph: Optional[Graph] = None) -> List[Dict[str, Any]
             "description": str(g.value(term, RDFS.comment) or ""),
             "inverse": str(inverse).split("#")[-1] if inverse else None,
             "propagation_direction": str(g.value(term, TWIN.propagationDirection) or ""),
+            "impact_direction": str(g.value(term, TWIN.impactDirection) or ""),
             "on_target_deleted": str(deletion_policy).split("#")[-1] if deletion_policy else None,
             "ui_color": str(g.value(term, TWIN.uiColor) or ""),
             "is_derived": bool(is_derived.toPython()) if is_derived is not None else False,
@@ -595,6 +839,20 @@ def get_relationship_types(graph: Optional[Graph] = None) -> List[Dict[str, Any]
 
     # Forward types first, then alphabetical — stable order for UI lists
     return sorted(types, key=lambda t: (t["is_derived"], t["name"]))
+
+
+def get_impact_directions(graph: Optional[Graph] = None) -> Dict[str, str]:
+    """
+    Relationship type name → the direction a failure travels along it.
+
+    Read out of the ontology rather than hard-coded next to the algorithm, so
+    a new relationship type becomes part of impact analysis by being added to
+    the vocabulary and nowhere else.
+    """
+    return {
+        entry["name"]: entry["impact_direction"] or "source-to-target"
+        for entry in get_relationship_types(graph)
+    }
 
 
 def get_inverse_type_map(graph: Optional[Graph] = None) -> Dict[str, str]:
@@ -638,6 +896,11 @@ def create_relationship_uri(interface_name: str, relationship_name: str) -> URIR
 def create_command_uri(interface_name: str, command_name: str) -> URIRef:
     """Create URI for a Command"""
     return URIRef(f"{TWIN_DATA}{interface_name}/command/{command_name}")
+
+
+def create_attribute_uri(subject_name: str, attribute_name: str) -> URIRef:
+    """Create URI for an Attribute value node"""
+    return URIRef(f"{TWIN_DATA}{subject_name}/attribute/{attribute_name}")
 
 
 # Location keys as they appear in YAML metadata.annotations, mapped to the
@@ -704,6 +967,105 @@ def add_location_triples(
     return added
 
 
+# Provenance keys as they appear in YAML metadata.annotations, mapped to the
+# predicate they become. Written by the external-integration importer; a twin
+# created through the form carries none of them.
+_PROVENANCE_PREDICATES = (
+    ("external-source", TWIN.externalSource, None),
+    ("external-id", TWIN.externalId, None),
+    ("external-url", TWIN.externalUrl, XSD.anyURI),
+    ("fetched-at", TWIN.fetchedAt, XSD.dateTime),
+    ("content-hash", TWIN.contentHash, None),
+)
+
+# Prefix marking an attribute value in metadata.annotations, e.g. attr-operator.
+ATTRIBUTE_PREFIX = "attr-"
+ATTRIBUTE_UNIT_SUFFIX = "-unit"
+
+
+def add_provenance_triples(
+    graph: Graph,
+    subject_uri: URIRef,
+    annotations: Optional[Dict[str, Any]],
+) -> bool:
+    """
+    Write external-provenance triples for an imported twin.
+
+    Shared by every writer so an imported twin says where it came from no
+    matter which code path stored it.
+
+    Returns:
+        bool: True if at least one provenance triple was added
+    """
+    if not annotations:
+        return False
+
+    added = False
+    for key, predicate, datatype in _PROVENANCE_PREDICATES:
+        raw = annotations.get(key)
+        if raw is None or raw == "":
+            continue
+        literal = Literal(str(raw), datatype=datatype) if datatype else Literal(str(raw))
+        graph.add((subject_uri, predicate, literal))
+        added = True
+
+    return added
+
+
+def add_attribute_triples(
+    graph: Graph,
+    subject_uri: URIRef,
+    subject_name: str,
+    annotations: Optional[Dict[str, Any]],
+) -> int:
+    """
+    Write ts:Attribute nodes for the static values carried in annotations.
+
+    An attribute is a fact the twin holds (operator name, structural height),
+    not a schema declaration — ts:Property covers the latter and deliberately
+    has no value slot.
+
+    Keys look like `attr-<name>`; an optional `attr-<name>-unit` names the unit
+    of the value next to it.
+
+    Returns:
+        int: number of attributes written
+    """
+    if not annotations:
+        return 0
+
+    written = 0
+    for key, raw in annotations.items():
+        if not key.startswith(ATTRIBUTE_PREFIX):
+            continue
+        name = key[len(ATTRIBUTE_PREFIX):]
+        if not name or raw is None or raw == "":
+            continue
+        # A `-unit` key belongs to the attribute beside it, not to one of its own
+        if name.endswith(ATTRIBUTE_UNIT_SUFFIX) and key[: -len(ATTRIBUTE_UNIT_SUFFIX)] in annotations:
+            continue
+
+        attribute_uri = create_attribute_uri(subject_name, name)
+        graph.add((attribute_uri, RDF.type, TWIN.Attribute))
+        graph.add((attribute_uri, TWIN.attributeName, Literal(name)))
+
+        # Numeric values are typed so SPARQL can compare them; text stays plain
+        try:
+            value_literal = Literal(Decimal(str(raw)), datatype=XSD.decimal)
+        except (InvalidOperation, ValueError):
+            value_literal = Literal(str(raw))
+        graph.add((attribute_uri, TWIN.attributeValue, value_literal))
+
+        unit = annotations.get(f"{key}{ATTRIBUTE_UNIT_SUFFIX}")
+        if unit:
+            graph.add((attribute_uri, TWIN.unit, Literal(str(unit))))
+
+        graph.add((subject_uri, TWIN.hasAttribute, attribute_uri))
+        written += 1
+
+    return written
+
+
 # ============================================================================
 # Exports
 # ============================================================================
@@ -721,14 +1083,20 @@ __all__ = [
     "ONTOLOGY_URI",
     "ONTOLOGY_VERSION",
     "RELATIONSHIP_TYPES",
+    "IMPACT_DIRECTIONS",
     "get_twin_ontology",
     "get_cached_ontology",
     "get_relationship_types",
+    "get_impact_directions",
     "get_inverse_type_map",
     "add_location_triples",
+    "add_provenance_triples",
+    "add_attribute_triples",
+    "ATTRIBUTE_PREFIX",
     "create_interface_uri",
     "create_instance_uri",
     "create_property_uri",
     "create_relationship_uri",
     "create_command_uri",
+    "create_attribute_uri",
 ]

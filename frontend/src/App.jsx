@@ -7,6 +7,7 @@ import TwinThingList from '@/pages/twin/TwinThingList'
 import TwinThingDetails from '@/pages/twin/TwinThingDetails'
 import SearchThings from '@/pages/twin/SearchThings'
 import TwinGraphView from '@/pages/twin/TwinGraphView'
+import HazardSimulation from '@/pages/simulation/HazardSimulation'
 
 function App() {
   return (
@@ -22,6 +23,9 @@ function App() {
             <Route path="things/search" element={<SearchThings />} />
             <Route path="things/graph" element={<TwinGraphView />} />
             <Route path="things/:interfaceName" element={<TwinThingDetails />} />
+
+            {/* Hazard simulation — partner model in, graph consequences out */}
+            <Route path="simulation" element={<HazardSimulation />} />
             
             {/* 404 */}
             <Route path="*" element={

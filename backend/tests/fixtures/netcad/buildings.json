@@ -1,0 +1,44 @@
+{
+  "buildings": [
+    {
+      "building_id": "fallback_1",
+      "building_type": "RC_Low",
+      "data_quality": "low",
+      "district": "Beyoğlu",
+      "latitude": 41.03203,
+      "longitude": 28.981799,
+      "osm_id": "fallback_1",
+      "osm_type": "residential",
+      "risk_level": "medium",
+      "source": "Fallback Data"
+    },
+    {
+      "building_id": "fallback_2",
+      "building_type": "RC_Mid",
+      "data_quality": "low",
+      "district": "Fatih",
+      "latitude": 41.026787,
+      "longitude": 28.960889,
+      "osm_id": "fallback_2",
+      "osm_type": "commercial",
+      "risk_level": "medium",
+      "source": "Fallback Data"
+    },
+    {
+      "building_id": "fallback_3",
+      "building_type": "RC_High",
+      "data_quality": "low",
+      "district": "Beşiktaş",
+      "latitude": 41.035952,
+      "longitude": 29.002106,
+      "osm_id": "fallback_3",
+      "osm_type": "office",
+      "risk_level": "medium",
+      "source": "Fallback Data"
+    }
+  ],
+  "count": 3,
+  "source": "OpenStreetMap (Gerçek)",
+  "timestamp": "2026-08-18T09:37:39.348855",
+  "total_inventory": 50
+}

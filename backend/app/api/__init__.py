@@ -5,7 +5,9 @@ Simplified API with Twin, Tenant, and DTDL endpoints.
 """
 
 from fastapi import APIRouter
-from .v2 import twin, tenants, dtdl, fuseki, ontology, discovery
+from .v2 import (
+    twin, tenants, dtdl, fuseki, ontology, discovery, integrations, simulation,
+)
 
 # Create main API router
 api_router = APIRouter()
@@ -52,6 +54,18 @@ api_router.include_router(
 # Thing Description Directory listing lives at /things per W3C WoT Discovery
 api_router.include_router(
     discovery.things_router,
+    prefix="/v2"
+)
+
+# External integrations (partner platforms → twins)
+api_router.include_router(
+    integrations.router,
+    prefix="/v2"
+)
+
+# Simulation (partner hazard model → impact across the relationship graph)
+api_router.include_router(
+    simulation.router,
     prefix="/v2"
 )
 

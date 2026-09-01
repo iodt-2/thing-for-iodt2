@@ -1,0 +1,47 @@
+{
+  "district_risks": [
+    {
+      "casualties": 127,
+      "district": "Fatih",
+      "economicValue": 2100000000.0,
+      "expectedLoss": 315000000.0,
+      "highRisk": 425,
+      "lowRisk": 325,
+      "mediumRisk": 500,
+      "population": 45000,
+      "riskScore": 85,
+      "totalBuildings": 1250
+    },
+    {
+      "casualties": 89,
+      "district": "Beyoğlu",
+      "economicValue": 1800000000.0,
+      "expectedLoss": 252000000.0,
+      "highRisk": 294,
+      "lowRisk": 294,
+      "mediumRisk": 392,
+      "population": 35000,
+      "riskScore": 78,
+      "totalBuildings": 980
+    },
+    {
+      "casualties": 56,
+      "district": "Beşiktaş",
+      "economicValue": 2500000000.0,
+      "expectedLoss": 187000000.0,
+      "highRisk": 150,
+      "lowRisk": 225,
+      "mediumRisk": 375,
+      "population": 28000,
+      "riskScore": 72,
+      "totalBuildings": 750
+    }
+  ],
+  "last_updated": "2026-08-18T09:36:59.427769",
+  "summary": {
+    "total_buildings": 2980,
+    "total_casualties": 272,
+    "total_economic_loss": 754000000.0,
+    "total_high_risk": 869
+  }
+}

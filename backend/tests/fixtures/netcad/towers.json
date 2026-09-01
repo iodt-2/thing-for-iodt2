@@ -1,0 +1,46 @@
+{
+  "count": 3,
+  "source": "OpenStreetMap (Gerçek)",
+  "timestamp": "2026-08-18T09:36:57.722022",
+  "towers": [
+    {
+      "district": "Üsküdar",
+      "height": 135,
+      "latitude": 41.022804,
+      "longitude": 29.047482,
+      "operator": "Turkcell",
+      "osm_id": "fallback_1",
+      "osm_type": "node",
+      "source": "Fallback Data",
+      "tags": {},
+      "tower_id": "fallback_1",
+      "tower_type": "Mobile Base Station"
+    },
+    {
+      "district": "Üsküdar",
+      "height": 51,
+      "latitude": 41.009013,
+      "longitude": 29.07093,
+      "operator": "Vodafone",
+      "osm_id": "fallback_2",
+      "osm_type": "node",
+      "source": "Fallback Data",
+      "tags": {},
+      "tower_id": "fallback_2",
+      "tower_type": "Communication Tower"
+    },
+    {
+      "district": "Beyoğlu",
+      "height": 139,
+      "latitude": 41.019787,
+      "longitude": 28.977025,
+      "operator": "Türk Telekom",
+      "osm_id": "fallback_3",
+      "osm_type": "node",
+      "source": "Fallback Data",
+      "tags": {},
+      "tower_id": "fallback_3",
+      "tower_type": "TV Tower"
+    }
+  ]
+}

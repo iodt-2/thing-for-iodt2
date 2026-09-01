@@ -73,6 +73,7 @@ class TwinGeneratorService:
         domain_metadata: Optional[Dict[str, str]] = None,
         dtdl_interface: Optional[Dict[str, Any]] = None,
         tenant_id: str = "default",
+        extra_annotations: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Generate TwinInterface YAML from WoT Thing Description
@@ -83,6 +84,8 @@ class TwinGeneratorService:
             thing_type: Digital Twin hierarchy type ('atomic', 'composite', 'system')
             domain_metadata: Domain metadata (manufacturer, model, serial_number, firmware_version)
             dtdl_interface: Optional DTDL interface metadata (dtmi, displayName, etc.)
+            extra_annotations: Extra metadata.annotations entries, e.g. external
+                provenance and attribute values written by an importer
 
         Returns:
             YAML string representing TwinInterface
@@ -132,6 +135,13 @@ class TwinGeneratorService:
             if dtdl_interface.get("category"):
                 annotations["dtdl-category"] = dtdl_interface["category"]
 
+        # Caller-supplied annotations go on last so an importer can state
+        # provenance without the generator knowing what a provider is
+        if extra_annotations:
+            annotations.update(
+                {k: str(v) for k, v in extra_annotations.items() if v not in (None, "")}
+            )
+
         # Build TwinInterface CR
         interface_cr = TwinInterfaceCR(
             metadata=TwinMetadata(
@@ -158,6 +168,7 @@ class TwinGeneratorService:
         thing_description: Dict[str, Any],
         interface_name: Optional[str] = None,
         tenant_id: str = "default",
+        extra_annotations: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Generate TwinInstance YAML from WoT Thing Description
@@ -188,6 +199,10 @@ class TwinGeneratorService:
             "original-id": thing_id,
         }
         annotations.update(self._location_annotations(thing_description))
+        if extra_annotations:
+            annotations.update(
+                {k: str(v) for k, v in extra_annotations.items() if v not in (None, "")}
+            )
 
         # Build TwinInstance CR
         instance_cr = TwinInstanceCR(

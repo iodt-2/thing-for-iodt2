@@ -67,6 +67,21 @@ class Settings(BaseSettings):
     SEED_FORCE_RELOAD: bool = Field(default=False)
 
     # ============================================
+    # EXTERNAL INTEGRATIONS
+    # ============================================
+    # Partner platforms this instance can import from. One entry per
+    # organisation; the adapters live in app/services/integrations/.
+    NETCAD_API_URL: str = Field(
+        default="https://netcad-iodt.westeurope.cloudapp.azure.com/api"
+    )
+    # Wall clock budget for a single partner API call.
+    EXTERNAL_API_TIMEOUT: float = Field(default=60.0)
+    # Ceiling on things stored per import. A partner inventory can be far
+    # larger than a demo graph should hold, and every thing becomes its own
+    # named graph — an unbounded import would bury the store.
+    EXTERNAL_IMPORT_MAX_ITEMS: int = Field(default=500)
+
+    # ============================================
     # TENANT CONFIGURATION (Simplified)
     # ============================================
     DEFAULT_TENANT_ID: str = Field(default="default")
