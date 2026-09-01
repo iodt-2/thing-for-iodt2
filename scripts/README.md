@@ -50,7 +50,21 @@ git config mirror.authorEmail "cakyildirim@innova.com.tr"
 scripts/bbsync.sh init
 ```
 
-Windows/PowerShell'de aynısı: `.\scripts\bbsync.ps1 setup IODT-123`
+### Windows'ta nasıl çağrılır
+
+`.sh` dosyaları cmd.exe ve PowerShell tarafından doğrudan çalıştırılmaz
+(`scripts/bbsync.sh init` cmd'de "not recognized" der, PowerShell'de sessizce
+hiçbir şey yapmaz). Üç seçenek:
+
+```bat
+scripts\bbsync.cmd init          :: cmd.exe ve PowerShell — önerilen
+bash scripts/bbsync.sh init      :: bash PATH'te (Git for Windows ile gelir)
+.\scripts\bbsync.ps1 init        :: yalnızca PowerShell
+```
+
+`bbsync.ps1`, kurumsal makinelerde çalışmayabilir: grup ilkesi
+`MachinePolicy = AllSigned` ise imzasız script'ler engellenir ve
+`-ExecutionPolicy Bypass` bunu aşamaz. `bbsync.cmd` bu kısıttan etkilenmez.
 
 `init`, `mirror.sourceBranch` (varsayılan `main`) branch'inin o anki halini tek
 bir "Initial import" commit'i olarak Bitbucket'a gönderir. Bundan önce
@@ -88,6 +102,24 @@ Source-Commit: 9b519629d7ec327d4130d6ab237b8dbfca473e78
 
 **`mirror`** — GitHub'daki her commit Bitbucket'ta ayrı bir commit olur (aynı
 içerik, yeniden yazılmış mesaj). Geçmiş istenmiyorsa gereksizdir.
+
+## Sunucudaki hook: YACC
+
+`tlcbitbucket.innova.com.tr` tarafında YACC (Yet Another Commit Checker)
+pre-receive hook'u çalışıyor ve her commit mesajının **başında** geçerli bir
+JIRA anahtarı arıyor. Kabul ettiği kayıt tipleri:
+
+> Story, Bug, Sub-Bug, Improvement, Automation, Config Story
+
+Düz **Task** tipi kabul edilmiyor. `snapshot` modunda her senkron tek commit
+ürettiği için **tek bir JIRA kaydı** tüm senkronlar için yeterlidir; kaydın açık
+kalması gerekebilir (YACC kapalı kayıtları reddedecek şekilde
+yapılandırılabiliyor).
+
+Reddedilen push zararsızdır: `refs/mirror/*` yalnızca push başarıyla döndükten
+sonra ilerler, yani tekrar denemek yeterlidir, temizlenecek bir şey kalmaz.
+
+Yazar kontrolü `mirror.authorName` / `mirror.authorEmail` ile karşılanıyor.
 
 ## Commit mesajları
 

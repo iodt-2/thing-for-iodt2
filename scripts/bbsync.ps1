@@ -6,7 +6,8 @@
 #   .\scripts\bbsync.ps1 status
 #   .\scripts\bbsync.ps1 push
 
-param([Parameter(ValueFromRemainingArguments = $true)] [string[]] $Args)
+# NOT: parametre adi $Args OLAMAZ — PowerShell'de rezerve otomatik degisken.
+param([Parameter(ValueFromRemainingArguments = $true)] [string[]] $Arguments)
 
 $ErrorActionPreference = 'Stop'
 
@@ -25,5 +26,6 @@ function Find-Bash {
 $bash   = Find-Bash
 $script = Join-Path $PSScriptRoot 'bbsync.sh'
 
-& $bash $script @Args
+if ($null -eq $Arguments) { $Arguments = @() }
+& $bash $script @Arguments
 exit $LASTEXITCODE
