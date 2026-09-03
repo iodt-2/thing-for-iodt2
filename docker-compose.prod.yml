@@ -31,7 +31,7 @@ services:
     restart: unless-stopped
     healthcheck:
       # curl/wget'in hangisinin oldugu imaja gore degisir — ikisini de dene
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3030/$$/ping || wget -qO- http://localhost:3030/$$/ping || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3030/$$/ping || wget -qO- http://127.0.0.1:3030/$$/ping || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -69,7 +69,7 @@ services:
     restart: unless-stopped
     healthcheck:
       # python:3.11-slim'de curl kurulu degil — stdlib ile kontrol et
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:3015/health', timeout=5).status==200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:3015/health', timeout=5).status==200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -89,8 +89,11 @@ services:
       - iodt2-network
     restart: unless-stopped
     healthcheck:
-      # nginx:alpine'da curl kurulu degil — busybox wget var
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      # nginx:alpine'da curl kurulu degil — busybox wget var.
+      # 127.0.0.1, 'localhost' DEGIL: nginx.conf ozel oldugu icin nginx
+      # entrypoint'i IPv6 dinleyicisi eklemiyor, sadece 'listen 80' var.
+      # 'localhost' once ::1'e cozulup baglanti reddi aliyor.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 30s
       timeout: 10s
       retries: 3
