@@ -1,0 +1,106 @@
+# Production compose — TEK BASINA calisir, docker-compose.yml'i override ETMEZ.
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Dev dosyasindan farklari:
+#   - kaynak kod bind-mount YOK  → imajdaki kod calisir (dev'de ./backend:/app onu eziyordu)
+#   - uvicorn --reload YOK       → cok worker'li prod sunucu
+#   - imajlar registry'den PULL edilir, sunucuda build EDILMEZ
+#   - Fuseki ve backend host'a acilmaz, sadece frontend disari cikar
+#   - sifreler .env'den gelir, dosyada sabit yok
+#
+# Gerekli degiskenler icin .env.example'a bak.
+
+name: iodt2-thing-description
+
+services:
+  fuseki:
+    # NOT: stain/jena-fuseki bakimsiz. apache/jena-fuseki'ye gecis ayri is —
+    # volume duzeni farkli, once bos bir ortamda dene. Simdilik tag pinlendi.
+    image: ${FUSEKI_IMAGE:?FUSEKI_IMAGE tanimli degil}
+    container_name: iodt2-thing-fuseki
+    # ports YOK — sadece iodt2-network icinden erisilir
+    environment:
+      - ADMIN_PASSWORD=${FUSEKI_PASSWORD:?FUSEKI_PASSWORD tanimli degil}
+      - JVM_ARGS=-Xmx${FUSEKI_HEAP:-2g}
+    volumes:
+      - iodt2-fuseki-data:/fuseki
+      - ./fuseki:/fuseki-config:ro
+    networks:
+      - iodt2-network
+    restart: unless-stopped
+    healthcheck:
+      # curl/wget'in hangisinin oldugu imaja gore degisir — ikisini de dene
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3030/$$/ping || wget -qO- http://localhost:3030/$$/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  backend:
+    image: ${REGISTRY:?REGISTRY tanimli degil}/iodt2-backend:${TAG:?TAG tanimli degil}
+    container_name: iodt2-thing-backend
+    # --reload yok, worker sayisi ayarlanabilir
+    command:
+      - uvicorn
+      - main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "3015"
+      - --workers
+      - "${BACKEND_WORKERS:-4}"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=False
+      - FUSEKI_URL=http://fuseki:3030
+      - FUSEKI_DATASET=iodt2-thing-description
+      - FUSEKI_USERNAME=${FUSEKI_USERNAME:-admin}
+      - FUSEKI_PASSWORD=${FUSEKI_PASSWORD:?FUSEKI_PASSWORD tanimli degil}
+      - CORS_ORIGINS=${CORS_ORIGINS:?CORS_ORIGINS tanimli degil}
+    volumes:
+      # Sadece uretilen veri. Kaynak kod imajdan gelir.
+      - iodt2-backend-data:/app/data
+    depends_on:
+      fuseki:
+        condition: service_healthy
+    networks:
+      - iodt2-network
+    restart: unless-stopped
+    healthcheck:
+      # python:3.11-slim'de curl kurulu degil — stdlib ile kontrol et
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:3015/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    image: ${REGISTRY:?REGISTRY tanimli degil}/iodt2-frontend:${TAG:?TAG tanimli degil}
+    container_name: iodt2-thing-frontend
+    # Onunde TLS yapan reverse proxy varsa 127.0.0.1'e bagla:
+    #   - "127.0.0.1:${FRONTEND_PORT:-3005}:80"
+    ports:
+      - "${FRONTEND_PORT:-3005}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - iodt2-network
+    restart: unless-stopped
+    healthcheck:
+      # nginx:alpine'da curl kurulu degil — busybox wget var
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  iodt2-fuseki-data:
+    name: iodt2-fuseki-data
+  iodt2-backend-data:
+    name: iodt2-backend-data
+
+networks:
+  iodt2-network:
+    name: iodt2-network

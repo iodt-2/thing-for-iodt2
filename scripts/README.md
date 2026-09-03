@@ -4,6 +4,8 @@ GitHub (`origin`) **kaynak** repodur: tam git geçmişi orada kalır.
 Bitbucket (`bitbucket`) **ayna**dır: geçmişsiz başlar, her yeni commit oraya
 JIRA anahtarıyla yeniden yazılarak aktarılır.
 
+bitbucket access token: 	TeamcityToken: BBDC-NTgwODMwNDU4MDMzOkhS0YtQMqmWaAuJpQe6ec0aOD/O
+
 ## Neden tek `git push` iki tarafa yetmiyor
 
 `remote.origin.pushurl` ile aynı push'u iki sunucuya göndermek mümkündür ama
@@ -78,13 +80,13 @@ git commit -m "feat(twin): ..."     # normal commit, JIRA key gerekmez
 scripts/bbsync.sh push              # GitHub'a push + Bitbucket'a ayna
 ```
 
-| Komut     | Ne yapar                                                        |
-|-----------|-----------------------------------------------------------------|
-| `push`    | GitHub'a push, ardından yeni commit'leri Bitbucket'a aynalar     |
-| `mirror`  | Sadece Bitbucket'a aynalar (GitHub'a dokunmaz)                   |
-| `status`  | Hangi commit'lerin aktarılacağını ve mesajlarını gösterir        |
+| Komut       | Ne yapar                                                              |
+| ----------- | --------------------------------------------------------------------- |
+| `push`    | GitHub'a push, ardından yeni commit'leri Bitbucket'a aynalar         |
+| `mirror`  | Sadece Bitbucket'a aynalar (GitHub'a dokunmaz)                        |
+| `status`  | Hangi commit'lerin aktarılacağını ve mesajlarını gösterir      |
 | `init`    | Bitbucket trunk'ını tek kök commit ile başlatır (bir kez)        |
-| `rebuild` | Bitbucket geçmişini silip sıfırdan kurar (force push, onay ister)|
+| `rebuild` | Bitbucket geçmişini silip sıfırdan kurar (force push, onay ister) |
 
 ## İki mod
 
@@ -142,17 +144,17 @@ Tek seferlik geçersiz kılma: `MIRROR_JIRA_KEY=IODT-789 scripts/bbsync.sh push`
 
 ## Ayarlar (`.git/config` → `[mirror]`)
 
-| Anahtar                   | Varsayılan  | Açıklama                                    |
-|---------------------------|-------------|---------------------------------------------|
-| `mirror.jiraKey`          | —           | Mesajlara eklenecek JIRA anahtarı           |
-| `mirror.githubRemote`     | `origin`    | Kaynak remote                               |
-| `mirror.bitbucketRemote`  | `bitbucket` | Hedef remote                                |
-| `mirror.sourceBranch`     | `main`      | Aynalanan yerel branch                      |
-| `mirror.bitbucketBranch`  | `main`      | Bitbucket'taki hedef branch (bu repoda `master`) |
-| `mirror.authorName`       | —           | Bitbucket commit'lerinin yazarı (boşsa kaynak korunur) |
-| `mirror.authorEmail`      | —           | Bitbucket commit'lerinin e-postası          |
-| `mirror.mode`             | `mirror`    | `mirror` = 1:1 commit, `snapshot` = tek commit |
-| `mirror.initMessage`      | `Initial import from internal repository` | Kök commit mesajı |
+| Anahtar                    | Varsayılan                                 | Açıklama                                               |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------- |
+| `mirror.jiraKey`         | —                                          | Mesajlara eklenecek JIRA anahtarı                       |
+| `mirror.githubRemote`    | `origin`                                  | Kaynak remote                                            |
+| `mirror.bitbucketRemote` | `bitbucket`                               | Hedef remote                                             |
+| `mirror.sourceBranch`    | `main`                                    | Aynalanan yerel branch                                   |
+| `mirror.bitbucketBranch` | `main`                                    | Bitbucket'taki hedef branch (bu repoda`master`)        |
+| `mirror.authorName`      | —                                          | Bitbucket commit'lerinin yazarı (boşsa kaynak korunur) |
+| `mirror.authorEmail`     | —                                          | Bitbucket commit'lerinin e-postası                      |
+| `mirror.mode`            | `mirror`                                  | `mirror` = 1:1 commit, `snapshot` = tek commit       |
+| `mirror.initMessage`     | `Initial import from internal repository` | Kök commit mesajı                                      |
 
 Ayarlar `.git/config`'de tutulur, commit edilmez — her klonda `setup` bir kez
 çalıştırılmalıdır.

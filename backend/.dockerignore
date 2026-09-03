@@ -1,3 +1,31 @@
 # Docker-specific files
 .dockerignore
 docker-compose.override.yml
+
+# Virtualenv — Windows'ta olusmus, linux imajina girerse hem devasa hem bozuk
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Yerel veri — imaja gomulmez, volume'den gelir
+data/
+*.db
+*.sqlite3
+
+# VCS / IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# NOT: tests/ BILEREK disarida birakilmadi. requirements.txt zaten pytest
+# iceriyor, testler kucuk. Boylece CI "docker run <imaj> pytest" ile
+# prod'a gidecek imajin TA KENDISINI test eder — ayri test ortami,
+# volume mount, agent'ta python kurulumu gerekmez.

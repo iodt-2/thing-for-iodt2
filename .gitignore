@@ -51,3 +51,5 @@ docs/*
 .cursor/
 backend/data/debug/
 *Claude.md
+# Deploy durum dosyasi (sunucuda olusur)
+.deploy-last-tag
