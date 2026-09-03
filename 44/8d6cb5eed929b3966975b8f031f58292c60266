@@ -1,0 +1,49 @@
+scripts/bootstrap-fuseki.sh
+  s_98b305a19d9d83::t_1039e3c558f94e 1-51
+scripts/update.sh
+  s_98b305a19d9d83::t_2182c098d34c3d 1-43
+.env.example
+  s_98b305a19d9d83::t_cefc408fe0fcc6 8,12-15,18
+  s_98b305a19d9d83::t_e6eb5a21a2e43a 1-7,19-36
+  s_98b305a19d9d83::t_22b83e51f8fd3a 9-11,16-17
+DEPLOY.md
+  s_98b305a19d9d83::t_22b83e51f8fd3a 3-4
+  s_98b305a19d9d83::t_1be98e6e0a7d7e 64,67-68,70-90
+  s_98b305a19d9d83::t_4d585e7c25ac5e 147-148,151-152
+  s_98b305a19d9d83::t_fe7347fa4b062d 1-2,5-63,65-66,69,91-146,149-150,153
+backend/.dockerignore
+  s_98b305a19d9d83::t_7c7957e8ed405d 28-31
+  s_98b305a19d9d83::t_6faf23cd1fbbf6 4-27
+docker-compose.prod.yml
+  s_98b305a19d9d83::t_f662c65c36a642 1-106
+.gitignore
+  s_98b305a19d9d83::t_49bc7ec009c8e6 53-55
+scripts/README.md
+  h_a6c0dc4039e953 7-8,84-87,148,153-157
+scripts/deploy.sh
+  s_98b305a19d9d83::t_b2577c51926a05 4-6,9-10,92-106
+  s_98b305a19d9d83::t_60c7d213d51057 49
+  s_98b305a19d9d83::t_63f2b1f3d0079e 1,3,7-8,13-27,45-46,54-59,65-76,110-136
+  s_98b305a19d9d83::t_a016a9850a100c 60-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "448d6cb5eed929b3966975b8f031f58292c60266",
+  "prompts": {},
+  "humans": {
+    "h_a6c0dc4039e953": {
+      "author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_98b305a19d9d83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c4831b7-7aeb-446d-b931-ea089245a1ac",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
