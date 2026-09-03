@@ -1,0 +1,23 @@
+scripts/deploy.sh
+  s_98b305a19d9d83::t_b067cfab1148ab 63-64
+docker-compose.prod.yml
+  s_98b305a19d9d83::t_b067cfab1148ab 34,72,92-96
+.env.example
+  s_98b305a19d9d83::t_0bcbfa15d04bd6 21-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "63cc68f70923a016ca9261f6bb37220f9d2c2ab0",
+  "prompts": {},
+  "sessions": {
+    "s_98b305a19d9d83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c4831b7-7aeb-446d-b931-ea089245a1ac",
+        "model": "claude-opus-5"
+      },
+      "human_author": "softdevcan <akyildirimcan@gmail.com>"
+    }
+  }
+}
